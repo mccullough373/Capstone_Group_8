@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PG Scanner</title>
+    <link rel="stylesheet" href="styles.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+</head>
+<body>
+
+    <!-- this is the title at the top of the page -->
+    <h1>PG Scanner</h1>
+    
+    <!-- this is a div for the cam window -->
+    <div class="camPlaceHolder" id="webcam-container"></div>
+
+
+    <h4> Confidence Levels</h4>
+    <!-- this is a div for the labels -->
+    <div id="label-container"></div>
+
+
+    <!-- this loads the camera on loading the page-->
+    <script>
+        window.addEventListener('DOMContentLoaded',() => {
+            init();
+        });
+
+    </script>
+
+    <!-- this is what links and runs the model's script-->
+    <script src="script.js"></script>
+
+</body>
+</html>
