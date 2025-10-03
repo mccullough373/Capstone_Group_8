@@ -1,3 +1,5 @@
+//this is the given code from google teachable
+
 // More API functions here:
     // https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
 
