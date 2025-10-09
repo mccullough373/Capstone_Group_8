@@ -1,0 +1,134 @@
+<!-- Export button -->
+<button id="exportBtn" style="margin-top:16px;">Export to PDF</button>
+
+<!-- jsPDF (for building the PDF) -->
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+<!-- Add this script block AFTER your script.js include so it can run last -->
+<script>
+  (function () {
+    const pad = (n) => String(n).padStart(2, '0');
+    const timestamp = () => {
+      const d = new Date();
+      return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+    };
+
+    // Try to get the current frame as a data URL.
+    async function getSnapshotDataURL() {
+      // Teachable Machine commonly renders to a <canvas> inside #webcam-container
+      let canvas = document.querySelector('#webcam-container canvas');
+      const video = document.querySelector('#webcam-container video');
+
+      if (canvas) {
+        // Already have a canvas we can export directly
+        try {
+          return canvas.toDataURL('image/jpeg', 0.92);
+        } catch (e) {
+          // fall through to video method if any security/canvas issue
+        }
+      }
+
+      // Fallback: draw current <video> frame onto a temp canvas
+      if (video && video.videoWidth && video.videoHeight) {
+        const temp = document.createElement('canvas');
+        temp.width = video.videoWidth;
+        temp.height = video.videoHeight;
+        const ctx = temp.getContext('2d');
+        ctx.drawImage(video, 0, 0, temp.width, temp.height);
+        return temp.toDataURL('image/jpeg', 0.92);
+      }
+
+      // If neither exists yet (e.g., model still loading), return null
+      return null;
+    }
+
+    function getConfidenceText() {
+      // Grab label text; this will capture whatever you render there (classes + probabilities)
+      const labelContainer = document.getElementById('label-container');
+      if (!labelContainer) return 'No confidence values available.';
+      // Build a neat list from children if present; otherwise fallback to textContent
+      const lines = [];
+      Array.from(labelContainer.children).forEach((child) => {
+        const t = child.innerText || child.textContent;
+        if (t && t.trim()) lines.push(t.trim());
+      });
+      if (lines.length === 0) {
+        const t = labelContainer.innerText || labelContainer.textContent || '';
+        return t.trim() || 'No confidence values available.';
+      }
+      return lines.join('\n');
+    }
+
+    async function exportToPDF() {
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const margin = 36; // 0.5 inch
+      let cursorY = margin;
+
+      // Title
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(18);
+      pdf.text('PG Scanner Report', margin, cursorY);
+      cursorY += 22;
+
+      // Timestamp
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(11);
+      pdf.text(`Generated: ${new Date().toLocaleString()}`, margin, cursorY);
+      cursorY += 16;
+
+      // Snapshot
+      const imgData = await getSnapshotDataURL();
+      if (imgData) {
+        // Fit the image to the page width minus margins, keep aspect ratio
+        const img = new Image();
+        img.src = imgData;
+        await new Promise((res) => (img.onload = res));
+
+        const maxW = pageW - margin * 2;
+        const scale = maxW / img.width;
+        const drawW = maxW;
+        const drawH = img.height * scale;
+
+        pdf.addImage(imgData, 'JPEG', margin, cursorY, drawW, drawH);
+        cursorY += drawH + 18;
+      } else {
+        pdf.setTextColor(200, 0, 0);
+        pdf.text('Snapshot unavailable (camera not ready).', margin, cursorY);
+        pdf.setTextColor(0, 0, 0);
+        cursorY += 18;
+      }
+
+      // Confidence section
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(14);
+      pdf.text('Confidence Levels', margin, cursorY);
+      cursorY += 16;
+
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(12);
+
+      const confText = getConfidenceText();
+      const wrapped = pdf.splitTextToSize(confText, pageW - margin * 2);
+
+      // Add new page if needed
+      if (cursorY + wrapped.length * 14 > pageH - margin) {
+        pdf.addPage();
+        cursorY = margin;
+      }
+      pdf.text(wrapped, margin, cursorY);
+
+      // Save
+      pdf.save(`PG-Scan_${timestamp()}.pdf`);
+    }
+
+    // Wire up the button
+    window.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('exportBtn');
+      if (btn) btn.addEventListener('click', exportToPDF);
+    });
+  })();
+</script>
