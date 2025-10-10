@@ -1,39 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PG Scanner</title>
-    <link rel="stylesheet" href="styles.css"/>
+    <link rel="stylesheet" href="Styles.css" />
+
+    <!-- Load TensorFlow.js library for machine learning -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-
-</head>
-<body>
-
-    <!-- this is the title at the top of the page -->
+    <!-- Load Teachable Machine Image library for image classification -->
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+  </head>
+  <body>
     <h1>PG Scanner</h1>
-    
-    <!-- this is a div for the cam window -->
+
+    <!-- Container where the webcam feed will be displayed -->
     <div class="camPlaceHolder" id="webcam-container"></div>
 
-    <!-- title above confidence level -->
-    <h4> Confidence Levels</h4>
+    <h4>Confidence Levels</h4>
 
-    <!-- this is a div for the labels -->
+    <!-- Container to display confidence levels of predictions -->
     <div id="label-container"></div>
 
+    <!-- Link to the main script containing the app logic -->
+    <script src="TeachableScript.js"></script>
 
-    <!-- this loads the camera on loading the page-->
-    <script>
-        window.addEventListener('DOMContentLoaded',() => {
-            init();
-        });
+    <!-- When btn is clicked start up camera-->
+    <button id="StartCamBtn" onclick="init()">Start Camera Feed</button>
 
-    </script>
+    <!-- Load jsPDF library for exporting content as PDF -->
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <!-- Script handling PDF export functionality -->
+    <script src="PdfExport.js"></script>
 
-    <!-- this is what links and runs the model's script-->
-    <script src="script.js"></script>
-
-</body>
+    <!-- Button to trigger PDF export of the current data -->
+    <button id="PDFbtn" onclick="exportToPDF()">Export PDF</button>
+  </body>
 </html>
