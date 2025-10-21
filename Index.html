@@ -32,12 +32,27 @@
     <!-- Script handling PDF export functionality -->
     <script src="PdfExport.js"></script>
 
+    <style> 
+      #PDFbtn {
+        display: none; /* Initially Hidden */
+      }
+    </style>
+
     <div class="button-container">
       <!-- Button to trigger PDF export of the current data -->
-      <button id="PDFbtn" onclick="exportToPDF()">Export PDF</button>
+       <button id="PDFbtn" onclick="exportToPDF()">Export PDF</button>
 
       <!-- Button to trigger camera stream-->
       <button id="StartCamBtn" onclick="init(); this.style.display='none';">
+
+
+    <script> 
+    const StartCamBtn = document.getElementById('StartCamBtn');
+    const PDFbtn = document.getElementById('PDFbtn'); 
+    StartCamBtn.addEventListener('click', () => {
+      PDFbtn.style.display = 'inline-block';
+    })
+    </script>
         Start Camera Feed
       </button>
     </div>
