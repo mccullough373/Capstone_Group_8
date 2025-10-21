@@ -34,10 +34,18 @@ async function init() {
   }
 }
 
+let lastUpdate = 0; // timestamp of last prediction update
+const updateInterval = 1250; // milliseconds between confidence updates
+
 async function loop() {
-  webcam.update(); // update the webcam frame
-  await predict();
+  webcam.update(); // keep the video feed smooth
   window.requestAnimationFrame(loop);
+
+  const now = Date.now();
+  if (now - lastUpdate >= updateInterval) {
+    await predict(); // run your confidence prediction
+    lastUpdate = now; // reset timer
+  }
 }
 
 // run the webcam image through the image model
