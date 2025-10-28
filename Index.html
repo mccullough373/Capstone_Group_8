@@ -4,8 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PG Scanner</title>
-    <link rel="stylesheet" href="Styles.css" />
-
+    <link rel="stylesheet" href="styles.css" />
     <!-- Load TensorFlow.js library for machine learning -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <!-- Load Teachable Machine Image library for image classification -->
@@ -13,26 +12,13 @@
   </head>
   <body>
     <h1>PG Scanner</h1>
-
-    <h4 id ="text">Confidence Levels</h4>
-
+    <h4 id="text">Confidence Levels</h4>
     <!-- Container where the webcam feed will be displayed -->
     <div class="camPlaceHolder" id="webcam-container"></div>
-
     <!-- Container to display confidence levels of predictions -->
     <div id="label-container"></div>
 
-    <!-- Link to the main script containing the app logic -->
-    <script src="TeachableScript.js"></script>
-
-    <!-- When btn is clicked start up camera and hide button-->
-
-    <!-- Load jsPDF library for exporting content as PDF -->
-    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-    <!-- Script handling PDF export functionality -->
-    <script src="PdfExport.js"></script>
-
-    <style> 
+    <style>
       #PDFbtn {
         display: none; /* Initially Hidden */
       }
@@ -43,28 +29,41 @@
 
     <div class="button-container">
       <!-- Button to trigger PDF export of the current data -->
-       <button id="PDFbtn" onclick="exportToPDF()">Export PDF</button>
-
+      <button id="PDFbtn" onclick="exportToPDF()">Export PDF</button>
       <!-- Button to trigger camera stream-->
-      <button id="StartCamBtn" onclick="init(); this.style.display='none';">
-
-
-    <script> 
-    // References to buttons
-    const StartCamBtn = document.getElementById('StartCamBtn');
-    const PDFbtn = document.getElementById('PDFbtn'); 
-
-    // CLick event listner to StartCambtn
-    StartCamBtn.addEventListener('click', () => {
-      PDFbtn.style.display = 'inline-block';
-    });
-
-    StartCamBtn.addEventListener('click', () => {
-      document.getElementById('text').style.display = 'inline-block';
-    });
-    </script>
-        Start Camera Feed
-      </button>
+      <button id="StartCamBtn">Start Camera Feed</button>
     </div>
+
+    <!-- Link to the main script containing the app logic -->
+    <script src="TeachableScript.js"></script>
+    <!-- Load jsPDF library for exporting content as PDF -->
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <!-- Script handling PDF export functionality -->
+    <script src="PdfExport.js"></script>
+
+    <script>
+      // References to buttons
+      const StartCamBtn = document.getElementById("StartCamBtn");
+      const PDFbtn = document.getElementById("PDFbtn");
+      const textElement = document.getElementById("text");
+
+      // Click event listener to StartCamBtn
+      StartCamBtn.addEventListener("click", async () => {
+        StartCamBtn.disabled = true;
+        StartCamBtn.textContent = "Loading...";
+
+        try {
+          await init();
+          StartCamBtn.style.display = "none";
+          PDFbtn.style.display = "inline-block";
+          textElement.style.display = "inline-block";
+        } catch (error) {
+          console.error("Failed to start camera:", error);
+          alert("Failed to start camera. Please check permissions.");
+          StartCamBtn.disabled = false;
+          StartCamBtn.textContent = "Start Camera Feed";
+        }
+      });
+    </script>
   </body>
 </html>
