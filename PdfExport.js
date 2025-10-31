@@ -52,7 +52,11 @@ async function exportToPDF() {
   }
   pdf.text(wrapped, margin, y);
 
-  pdf.save(`PG-Scan_${timestamp()}.pdf`);
+  const filename = `PG-Scan_${timestamp()}.pdf`;
+  pdf.save(filename);
+
+  // Return the filename so it can be stored in the database
+  return filename;
 }
 
 const pad = (n) => String(n).padStart(2, "0");
