@@ -1,22 +1,12 @@
 # PG Scanner
 
-Real-time image classification using Teachable Machine and TensorFlow.js
+This is a real time AI physicans assistant when it comes to diagnosing Pyrdoerma Gangrenosum (PG). Just hold the skin ulcer in the camera frame from about 6 inches away and the model will provide you with a confidence percentage. You are then able to export the results into a PDF that will have and image of the condition and the confidence level. It will also store some basic paitent data into a local database for charting later. 
 
 ## Features
 
 - Live webcam feed classification
 - Confidence level display
 - PDF export of results
+- Local database to store basic paitent data
 
-## Setup
-
-1. Clone the repository
-2. Open `index.html` in a modern browser
-3. Allow camera permissions
-4. Click "Start Camera Feed"
-
-## Technologies
-
-- TensorFlow.js
-- Teachable Machine
-- jsPDF
+## How to use
