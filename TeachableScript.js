@@ -1,51 +1,67 @@
-// More API functions here:
-// https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
+/**
+ * TeachableScript.js - ML Model Integration
+ *
+ * Handles:
+ * - Loading TensorFlow.js model from Teachable Machine
+ * - Webcam setup and frame capture
+ * - Real-time image classification
+ * - Confidence score display with color coding
+ *
+ * API Documentation:
+ * https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
+ */
 
-// Configurable constants
+// ========== Configuration ==========
 const CONFIG = {
-  // This is the interval at which the confidence percentages update their values
+  // Prediction update interval (milliseconds)
   UPDATE_INTERVAL: 1250,
-  // This is the link to the google teachable model being used for analysis
-  // If you change this link it will change what model is being used
+
+  // External model URL (Teachable Machine hosted)
   MODEL_URL: "https://teachablemachine.withgoogle.com/models/efDaJaMeI/",
-  // This shows predictions only above this threshold percentage
+
+  // Minimum confidence threshold to display (percentage)
   CONFIDENCE_THRESHOLD: 5,
 };
 
+// ========== Global State ==========
 let model, webcam, labelContainer, maxPredictions;
-let lastUpdate = 0; // timestamp of last prediction update
+let lastUpdate = 0; // Timestamp of last prediction
 
-// Load the image model and setup the webcam
+// ========== Initialization ==========
+
+/**
+ * Initializes the ML model and webcam
+ * Loads model from external URL and sets up webcam feed
+ * @throws {Error} If model loading or camera access fails
+ */
 async function init() {
   try {
     const modelURL = CONFIG.MODEL_URL + "model.json";
     const metadataURL = CONFIG.MODEL_URL + "metadata.json";
 
-    // load the model and metadata
-    // Refer to tmImage.loadFromFiles() in the API to support files from a file picker
-    // or files from your local hard drive
-    // Note: the pose library adds "tmImage" object to your window (window.tmImage)
+    // Load pre-trained model and metadata
     model = await tmImage.load(modelURL, metadataURL);
     maxPredictions = model.getTotalClasses();
 
-    // Convenience function to setup a webcam
-    const flip = true; // whether to flip the webcam
-    webcam = new tmImage.Webcam(); // width, height, flip
-    await webcam.setup(); // request access to the webcam
+    // Initialize webcam with mirroring enabled
+    const flip = true;
+    webcam = new tmImage.Webcam();
+    await webcam.setup(); // Request camera permissions
     await webcam.play();
+
+    // Start prediction loop
     window.requestAnimationFrame(loop);
 
-    // append elements to the DOM
+    // Add webcam canvas to DOM
     document.getElementById("webcam-container").appendChild(webcam.canvas);
     labelContainer = document.getElementById("label-container");
-    // No need to create child divs - we'll create them dynamically in predict()
   } catch (error) {
     console.error("Initialization error:", error);
     alert(
       "Failed to initialize. Please check camera permissions and internet connection."
     );
 
-    // Re-enable start button
+    // Re-enable start button on failure
     const startBtn = document.getElementById("StartCamBtn");
     if (startBtn) {
       startBtn.style.display = "inline-block";
@@ -53,27 +69,44 @@ async function init() {
       startBtn.textContent = "Start Camera Feed";
     }
 
-    throw error; // Re-throw so the calling code knows it failed
+    throw error;
   }
 }
 
+// ========== Animation Loop ==========
+
+/**
+ * Main animation loop for webcam updates and periodic predictions
+ * Runs continuously via requestAnimationFrame
+ */
 async function loop() {
-  webcam.update(); // keep the video feed smooth
+  webcam.update(); // Keep video feed smooth
   window.requestAnimationFrame(loop);
 
+  // Run prediction at configured interval
   const now = Date.now();
   if (now - lastUpdate >= CONFIG.UPDATE_INTERVAL) {
-    await predict(); // run your confidence prediction
-    lastUpdate = now; // reset timer
+    await predict();
+    lastUpdate = now;
   }
 }
 
-// run the webcam image through the image model
+// ========== Prediction ==========
+
+/**
+ * Runs ML prediction on current webcam frame
+ * Finds PG classification and displays color-coded confidence level
+ *
+ * Color Coding:
+ * - Green (≥70%): High confidence - likely PG
+ * - Yellow (40-69%): Medium confidence - uncertain
+ * - Red (<40%): Low confidence - likely not PG
+ */
 async function predict() {
-  // predict can take in an image, video or canvas html element
+  // Run model inference on current frame
   const prediction = await model.predict(webcam.canvas);
 
-  // Find the PG prediction (assuming class name is "PG")
+  // Find PG prediction (assumes class name contains "pg")
   let pgPrediction = null;
   for (let i = 0; i < maxPredictions; i++) {
     if (prediction[i].className.toLowerCase().includes("pg")) {
@@ -82,29 +115,23 @@ async function predict() {
     }
   }
 
-  // Clear the label container and show only the PG result
+  // Clear previous results
   labelContainer.innerHTML = "";
 
   if (pgPrediction) {
     const prob = pgPrediction.probability * 100;
     const resultDiv = document.createElement("div");
 
-    // Display the PG confidence percentage
+    // Set display text
     resultDiv.innerHTML = `PG Detected: ${prob.toFixed(1)}%`;
 
-    // Color code based on confidence level
+    // Apply color coding based on confidence level
     if (prob >= 70) {
-      // High confidence = GREEN (likely PG)
-      resultDiv.style.background = "rgba(34, 197, 94, 0.9)"; // green
-      resultDiv.innerHTML = `PG Detected: ${prob.toFixed(1)}% `;
+      resultDiv.style.background = "rgba(34, 197, 94, 0.9)"; // Green
     } else if (prob >= 40) {
-      // Medium confidence = YELLOW (uncertain)
-      resultDiv.style.background = "rgba(234, 179, 8, 0.9)"; // yellow
-      resultDiv.innerHTML = `PG Detected: ${prob.toFixed(1)}% `;
+      resultDiv.style.background = "rgba(234, 179, 8, 0.9)"; // Yellow
     } else {
-      // Low confidence = RED (likely not PG)
-      resultDiv.style.background = "rgba(239, 68, 68, 0.9)"; // red
-      resultDiv.innerHTML = `PG Detected: ${prob.toFixed(1)}% `;
+      resultDiv.style.background = "rgba(239, 68, 68, 0.9)"; // Red
     }
 
     labelContainer.appendChild(resultDiv);
