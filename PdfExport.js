@@ -12,7 +12,7 @@
 
 /**
  * Generates a PDF report with patient scan results
- * @returns {string} Generated filename for database storage
+ * @returns {Object} {filename, pdfBlob} - Generated filename and blob for database storage
  */
 async function exportToPDF() {
   const { jsPDF } = window.jspdf;
@@ -76,9 +76,10 @@ async function exportToPDF() {
 
   // ========== Save PDF ==========
   const filename = `PG-Scan_${timestamp()}.pdf`;
+  const pdfBlob = pdf.output("blob");
   pdf.save(filename);
 
-  return filename;
+  return { filename, pdfBlob };
 }
 
 // ========== Utility Functions ==========

@@ -127,11 +127,12 @@ async function exportToPDFWithPatient() {
   }
 
   try {
-    // Generate PDF (returns filename)
-    const pdfFilename = await exportToPDF(); // Defined in PdfExport.js
+    // Generate PDF (returns filename and blob)
+    const { filename, pdfBlob } = await exportToPDF(); // Defined in PdfExport.js
 
-    // Add PDF filename to patient data
-    currentPatientData.pdfFilename = pdfFilename;
+    // Add PDF filename and blob to patient data
+    currentPatientData.pdfFilename = filename;
+    currentPatientData.pdfBlob = pdfBlob;
 
     // Save complete record to IndexedDB
     const patientId = await patientDB.addPatient(currentPatientData);
@@ -229,25 +230,31 @@ function displayRecords(patients) {
   // Build table HTML
   let html = "<table class='records-table'>";
   html +=
-    "<thead><tr><th>ID</th><th>Name</th><th>Age</th><th>Sex</th><th>Date</th><th>PDF</th><th>Actions</th></tr></thead>";
+    "<thead><tr><th>ID</th><th>Name</th><th>Age</th><th>Sex</th><th>Date</th><th>Actions</th></tr></thead>";
   html += "<tbody>";
 
   patients.forEach((patient) => {
     const date = new Date(patient.createdAt).toLocaleDateString();
+
+    // Define showPdfButton for EACH patient - FIX: This was missing!
+    const showPdfButton = patient.pdfBlob || patient.pdfFilename;
+
     html += `<tr>
-            <td>${patient.id}</td>
-            <td>${patient.name}</td>
-            <td>${patient.age}</td>
-            <td>${patient.sex}</td>
-            <td>${date}</td>
-            <td>${patient.pdfFilename || "N/A"}</td>
-            <td>
-              <button onclick="viewPatientDetails(${patient.id})">View</button>
-              <button onclick="deletePatientRecord(${
-                patient.id
-              })">Delete</button>
-            </td>
-          </tr>`;
+      <td>${patient.id}</td>
+      <td>${patient.name}</td>
+      <td>${patient.age}</td>
+      <td>${patient.sex}</td>
+      <td>${date}</td>
+      <td>
+        <button onclick="viewPatientDetails(${patient.id})">View</button>
+        ${
+          showPdfButton
+            ? `<button onclick="downloadPatientPDF(${patient.id})">Download PDF</button>`
+            : ""
+        }
+        <button onclick="deletePatientRecord(${patient.id})">Delete</button>
+      </td>
+    </tr>`;
   });
 
   html += "</tbody></table>";
@@ -262,16 +269,50 @@ async function viewPatientDetails(id) {
   try {
     const patient = await patientDB.getPatientById(id);
     if (patient) {
+      const pdfInfo = patient.pdfBlob
+        ? `PDF: ${patient.pdfFilename} (Available for download)`
+        : patient.pdfFilename
+        ? `PDF: ${patient.pdfFilename} (File not stored)`
+        : "PDF: Not available";
+
       alert(
         `Patient Details:\n\nName: ${patient.name}\nAge: ${patient.age}\nSex: ${
           patient.sex
-        }\nNotes: ${patient.notes || "None"}\nPDF: ${
-          patient.pdfFilename || "N/A"
-        }\nCreated: ${new Date(patient.createdAt).toLocaleString()}`
+        }\nNotes: ${patient.notes || "None"}\n${pdfInfo}\nCreated: ${new Date(
+          patient.createdAt
+        ).toLocaleString()}`
       );
     }
   } catch (error) {
     console.error("Error viewing patient:", error);
+  }
+}
+
+/**
+ * Downloads stored PDF for a patient record
+ * @param {number} id - Patient record ID
+ */
+async function downloadPatientPDF(id) {
+  try {
+    const patient = await patientDB.getPatientById(id);
+    if (patient && patient.pdfBlob) {
+      // Create a download link for the stored PDF blob
+      const url = URL.createObjectURL(patient.pdfBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = patient.pdfFilename || `Patient-${id}-Report.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } else {
+      alert(
+        "PDF file not available. The PDF may have been generated before this feature was added."
+      );
+    }
+  } catch (error) {
+    console.error("Error downloading PDF:", error);
+    alert("Failed to download PDF.");
   }
 }
 
@@ -297,6 +338,7 @@ async function deletePatientRecord(id) {
 window.viewPatientDetails = viewPatientDetails;
 window.deletePatientRecord = deletePatientRecord;
 window.exportToPDFWithPatient = exportToPDFWithPatient;
+window.downloadPatientPDF = downloadPatientPDF;
 
 // ========== Debug Logging ==========
 window.addEventListener("load", () => {
