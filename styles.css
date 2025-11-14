@@ -4,13 +4,19 @@
   box-sizing: border-box;
 }
 
-html, body { height: 100%; }
-
-body{
-  background-image: url("Grey-Background.jpeg"); /* or .jpeg */
+body {
+  font-family: Georgia, "Times New Roman", Times, serif;
+  display: flex;
+  flex-direction: column;
+  color: #fff;
+  min-height: 100vh;
+  padding: 20px 10px;
+  align-items: center;
+  background-image: url("Grey-Background.jpeg");
   background-position: center;
   background-size: cover;
-  background-repeat: no-repeat;    /* fallback */
+  background-repeat: no-repeat;
+  background-color: rgba(167, 177, 183); /* fallback */
 }
  
 
@@ -18,7 +24,7 @@ h1 {
   padding: 20px 0;
   font-size: 56px;
   text-align: center;
-  color: #6b0000;
+  color: #ffffff;
   text-shadow: 0 4px 10px rgba(0, 0, 0, 0.8);
   letter-spacing: 2px;
   gap: 24px;
@@ -121,6 +127,24 @@ h4 {
   background: #666;
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+/* Initial visibility states - moved from inline styles in HTML */
+/* These must come AFTER the button styling above to override display:block */
+#PDFbtn {
+  display: none; /* Initially Hidden */
+}
+
+#text {
+  display: none;
+}
+
+#patient-form-container {
+  display: block; /* Show form initially */
+}
+
+#view-records-btn {
+  display: inline-block;
 }
 
 #webcam-container {
@@ -264,18 +288,21 @@ h4 {
   color: white;
 }
 
-.records-table th,
+.records-table th {
+  padding: 15px 12px;
+  text-align: left;
+  font-weight: 700;
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid #ddd;
+}
+
 .records-table td {
   padding: 12px;
   text-align: left;
   border-bottom: 1px solid #ddd;
   color: #333;
-}
-
-.records-table th {
-  font-weight: 700;
-  font-size: 14px;
-  text-transform: uppercase;
 }
 
 .records-table tbody tr:hover {
@@ -293,6 +320,7 @@ h4 {
   font-weight: 600;
 }
 
+/* View button - Green */
 .records-table button:first-child {
   background: #4caf50;
   color: white;
@@ -302,6 +330,23 @@ h4 {
   background: #45a049;
 }
 
+/* Download PDF button - Blue */
+.records-table button:nth-child(2) {
+  background: #2196f3;
+  color: white;
+}
+
+.records-table button:nth-child(2):hover {
+  background: #0b7dda;
+}
+
+.records-table button:nth-child(2):disabled {
+  background: #90caf9;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Delete button - Red */
 .records-table button:last-child {
   background: #f44336;
   color: white;

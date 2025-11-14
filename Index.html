@@ -4,16 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PG Scanner</title>
-    <link rel="stylesheet" href="styles.css" />
-    <!-- Load TensorFlow.js library for machine learning -->
+    <link rel="stylesheet" href="Styles.css" />
+
+    <!-- External Dependencies: TensorFlow.js and Teachable Machine -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-    <!-- Load Teachable Machine Image library for image classification -->
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
   </head>
   <body>
     <h1>PG Scanner</h1>
 
-    <!-- Patient Information Form -->
+    <!-- ========== Patient Information Form ========== -->
     <div id="patient-form-container" class="form-container">
       <h3>Patient Information</h3>
       <form id="patient-form" onsubmit="return false;">
@@ -51,10 +51,9 @@
       </form>
     </div>
 
+    <!-- ========== Webcam and Results Section ========== -->
     <h4 id="text">Confidence Levels</h4>
-    <!-- Container where the webcam feed will be displayed -->
     <div class="camPlaceHolder" id="webcam-container"></div>
-    <!-- Container to display confidence levels of predictions -->
     <div id="label-container"></div>
 
     <style>
@@ -103,9 +102,7 @@
     <script src="PatientDatabase.js"></script>
     <!-- Link to the main script containing the app logic -->
     <script src="TeachableScript.js"></script>
-    <!-- Load jsPDF library for exporting content as PDF -->
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-    <!-- Script handling PDF export functionality -->
     <script src="PdfExport.js"></script>
 
     <script>
