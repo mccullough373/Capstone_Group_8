@@ -177,7 +177,7 @@ setupEncryptionBtn.addEventListener("click", async () => {
     // Hide model and show success message
     encryptionmodel.style.display = "none";
     alert(
-      "Encryption setup successful!\n\n¸ IMPORTANT: Remember your password - it cannot be recovered!"
+      "Encryption setup successful!\n\nIMPORTANT: Remember your password - it cannot be recovered!"
     );
   } catch (error) {
     console.error("Encryption setup error:", error);
