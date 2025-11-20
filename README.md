@@ -9,22 +9,6 @@ A web-based medical scanning application that uses machine learning to assist he
 
 ---
 
-## 📋 Table of Contents
-
-- [Overview](#overview)
-- [Features](#features)
-- [Technology Stack](#technology-stack)
-- [Prerequisites](#prerequisites)
-- [Installation & Setup](#installation--setup)
-- [Usage Guide](#usage-guide)
-- [Project Structure](#project-structure)
-- [Security Features](#security-features)
-- [Architecture](#architecture)
-- [Development](#development)
-- [Disclaimer](#disclaimer)
-
----
-
 ## 🔬 Overview
 
 PG Scanner is an AI-powered diagnostic assistance tool designed to help healthcare professionals identify Pyoderma Gangrenosum (PG), a rare and serious skin condition. The application:
