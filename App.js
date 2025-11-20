@@ -299,7 +299,7 @@ async function exportToPDFWithPatient() {
     const patientId = await patientDB.addPatient(currentPatientData);
 
     alert(
-      `Patient record saved successfully!\n\nRecord ID: ${patientId}\n”’ Data encrypted and stored securely.`
+      `Patient record saved successfully!\n\nRecord ID: ${patientId}\nData encrypted and stored securely.`
     );
   } catch (error) {
     console.error("Error saving patient record:", error);
@@ -458,7 +458,7 @@ async function viewPatientDetails(id) {
           `Notes: ${patient.notes || "None"}\n` +
           `${pdfInfo}\n` +
           `Created: ${new Date(patient.createdAt).toLocaleString()}\n\n` +
-          `ðŸ”’ This data is encrypted in storage.`
+          `This data is encrypted in storage.`
       );
     }
   } catch (error) {
@@ -523,7 +523,7 @@ async function downloadPatientPDF(id) {
 async function deletePatientRecord(id) {
   if (
     confirm(
-      "¸ Are you sure you want to delete this patient record?\n\nThis action cannot be undone."
+      "Are you sure you want to delete this patient record?\n\nThis action cannot be undone."
     )
   ) {
     try {
