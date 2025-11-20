@@ -5,15 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PG Scanner</title>
     <link rel="stylesheet" href="Styles.css" />
-
-    <!-- External Dependencies: TensorFlow.js and Teachable Machine -->
+    <!-- Load TensorFlow.js library for machine learning -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <!-- Load Teachable Machine Image library for image classification -->
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
   </head>
   <body>
     <h1>PG Scanner</h1>
 
-    <!-- ========== Patient Information Form ========== -->
+    <!-- Encryption Setup model -->
+    <div id="encryption-model" class="model" style="display: none">
+      <div class="model-content">
+        <h2>Security Setup Required</h2>
+        <p>Set a master password to encrypt patient data:</p>
+
+        <div class="form-group">
+          <label for="master-password">Master Password:</label>
+          <input type="password" id="master-password" required />
+        </div>
+
+        <div class="form-group">
+          <label for="confirm-password">Confirm Password:</label>
+          <input type="password" id="confirm-password" required />
+        </div>
+
+        <button id="setup-encryption-btn" class="encryption-btn">
+          Setup Encryption
+        </button>
+        <p id="encryption-error" style="color: red; display: none"></p>
+      </div>
+    </div>
+
+    <!-- Patient Information Form -->
     <div id="patient-form-container" class="form-container">
       <h3>Patient Information</h3>
       <form id="patient-form" onsubmit="return false;">
@@ -51,21 +74,24 @@
       </form>
     </div>
 
-    <!-- ========== Webcam and Results Section ========== -->
     <h4 id="text">Confidence Levels</h4>
+    <!-- Container where the webcam feed will be displayed -->
     <div class="camPlaceHolder" id="webcam-container"></div>
+    <!-- Container to display confidence levels of predictions -->
     <div id="label-container"></div>
 
-    <!-- ========== Action Buttons ========== -->
     <div class="button-container">
+      <!-- Button to view patient records -->
       <button id="view-records-btn">View Records</button>
+      <!-- Button to trigger PDF export of the current data -->
       <button id="PDFbtn" onclick="exportToPDFWithPatient()">Export PDF</button>
+      <!-- Button to trigger camera stream-->
       <button id="StartCamBtn">Start Camera Feed</button>
     </div>
 
-    <!-- ========== Records Modal ========== -->
-    <div id="records-modal" class="modal">
-      <div class="modal-content">
+    <!-- model for viewing patient records -->
+    <div id="records-model" class="model">
+      <div class="model-content">
         <span class="close">&times;</span>
         <h2>Patient Records</h2>
         <div class="search-container">
@@ -81,8 +107,8 @@
       </div>
     </div>
 
-    <!-- ========== JavaScript Dependencies ========== -->
-    <!-- Load order matters: Database → ML → PDF → App Logic -->
+    <!-- Load scripts in correct order - VERY IMPORTANT -->
+    <script src="Encryption.js"></script>
     <script src="PatientDatabase.js"></script>
     <script src="TeachableScript.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>

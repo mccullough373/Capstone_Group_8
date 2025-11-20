@@ -1,11 +1,13 @@
 /**
- * App.js - PG Scanner Main Application Logic
+ * App.js - PG Scanner Main Application Logic - FIXED PASSWORD VERIFICATION
  *
  * Handles:
+ * - Encryption setup and initialization with verification token
+ * - Proper password verification on load
  * - Patient form validation
  * - Camera initialization
  * - Patient record management (CRUD operations)
- * - Modal interactions
+ * - model interactions
  * - Database integration
  */
 
@@ -16,26 +18,173 @@ const textElement = document.getElementById("text");
 const patientForm = document.getElementById("patient-form");
 const patientFormContainer = document.getElementById("patient-form-container");
 const viewRecordsBtn = document.getElementById("view-records-btn");
-const recordsModal = document.getElementById("records-modal");
-const closeModal = document.querySelector(".close");
+const recordsmodel = document.getElementById("records-model");
+const closemodel = document.querySelector(".close");
 const searchInput = document.getElementById("search-input");
 const searchBtn = document.getElementById("search-btn");
 const showAllBtn = document.getElementById("show-all-btn");
 const recordsList = document.getElementById("records-list");
 
+// Encryption model elements
+const encryptionmodel = document.getElementById("encryption-model");
+const setupEncryptionBtn = document.getElementById("setup-encryption-btn");
+const masterPasswordInput = document.getElementById("master-password");
+const confirmPasswordInput = document.getElementById("confirm-password");
+const encryptionError = document.getElementById("encryption-error");
+
 // ========== Application State ==========
 let currentPatientData = null;
 
-// ========== Database Initialization ==========
-patientDB
-  .init()
-  .then(() => {
+// ========== Encryption & Database Initialization ==========
+
+/**
+ * Initialize encryption and database on page load
+ */
+window.addEventListener("load", async () => {
+  console.log("Page fully loaded");
+  console.log("init function available:", typeof init !== "undefined");
+
+  // Check if encryption is already set up
+  const hasEncryption = localStorage.getItem("encryption_salt");
+
+  if (!hasEncryption) {
+    // First time - show encryption setup model
+    console.log("First time setup - showing encryption model");
+    encryptionmodel.style.display = "block";
+  } else {
+    // Returning user - ask for password with verification
+    await promptForPassword();
+  }
+});
+
+/**
+ * Prompt user for master password to unlock application
+ * NOW WITH PROPER PASSWORD VERIFICATION USING A TEST TOKEN!
+ */
+async function promptForPassword() {
+  let attempts = 0;
+  const maxAttempts = 3;
+
+  while (attempts < maxAttempts) {
+    const password = prompt(
+      attempts === 0
+        ? "Enter master password to unlock application:"
+        : `Incorrect password. Attempt ${attempts + 1}/${maxAttempts}:`
+    );
+
+    if (!password) {
+      alert("Password required to access application");
+      location.reload();
+      return;
+    }
+
+    try {
+      // Step 1: Initialize encryption with the password
+      await encryption.init(password);
+      console.log("Encryption key generated from password");
+
+      // Step 2: CRITICAL - Verify password by decrypting the stored verification token
+      const verificationToken = localStorage.getItem("encryption_verification");
+
+      if (!verificationToken) {
+        console.error(
+          "No verification token found! Encryption was not set up properly."
+        );
+        alert(
+          "Security error: Verification token missing. Please clear browser data and set up again."
+        );
+        localStorage.removeItem("encryption_salt");
+        location.reload();
+        return;
+      }
+
+      // Try to decrypt the verification token
+      const decryptedToken = await encryption.decrypt(verificationToken);
+
+      // Check if the decrypted token matches our expected value
+      if (decryptedToken.verify === "PG_SCANNER_AUTH_TOKEN") {
+        console.log(" Password verified successfully!");
+
+        // Step 3: Initialize database after successful verification
+        await patientDB.init();
+        console.log("Database initialized");
+
+        return; // Exit function - user is authenticated
+      } else {
+        throw new Error("Verification token mismatch");
+      }
+    } catch (error) {
+      console.error("Password verification failed:", error);
+      attempts++;
+
+      // Reset encryption key on failed attempt
+      encryption.key = null;
+
+      if (attempts >= maxAttempts) {
+        alert(
+          "Too many failed attempts.\n\nPlease refresh the page and try again."
+        );
+        location.reload();
+        return;
+      }
+      // Loop will continue for another attempt
+    }
+  }
+}
+
+/**
+ * Handle encryption setup for first-time users
+ * NOW CREATES A VERIFICATION TOKEN!
+ */
+setupEncryptionBtn.addEventListener("click", async () => {
+  const password = masterPasswordInput.value;
+  const confirm = confirmPasswordInput.value;
+
+  // Validate password length
+  if (!password || password.length < 8) {
+    encryptionError.textContent = "Password must be at least 8 characters";
+    encryptionError.style.display = "block";
+    return;
+  }
+
+  // Validate password match
+  if (password !== confirm) {
+    encryptionError.textContent = "Passwords do not match";
+    encryptionError.style.display = "block";
+    return;
+  }
+
+  try {
+    // Initialize encryption with master password
+    await encryption.init(password);
+    console.log("Encryption initialized successfully");
+
+    // CRITICAL: Create and store a verification token
+    // This token will be used to verify the password on future logins
+    const verificationData = {
+      verify: "PG_SCANNER_AUTH_TOKEN",
+      created: new Date().toISOString(),
+    };
+
+    const encryptedToken = await encryption.encrypt(verificationData);
+    localStorage.setItem("encryption_verification", encryptedToken);
+    console.log("Verification token created and stored");
+
+    // Initialize database
+    await patientDB.init();
     console.log("Patient database initialized");
-  })
-  .catch((err) => {
-    console.error("Failed to initialize database:", err);
-    alert("Warning: Database initialization failed. Records may not be saved.");
-  });
+
+    // Hide model and show success message
+    encryptionmodel.style.display = "none";
+    alert(
+      "Encryption setup successful!\n\nIMPORTANT: Remember your password - it cannot be recovered!"
+    );
+  } catch (error) {
+    console.error("Encryption setup error:", error);
+    encryptionError.textContent = "Setup failed: " + error.message;
+    encryptionError.style.display = "block";
+  }
+});
 
 // ========== Form Validation ==========
 
@@ -71,6 +220,12 @@ function validatePatientForm() {
  */
 StartCamBtn.addEventListener("click", async () => {
   console.log("Start Camera button clicked");
+
+  // Check if encryption is initialized
+  if (!encryption.isInitialized()) {
+    alert("Encryption not initialized. Please refresh the page.");
+    return;
+  }
 
   // Validate form before starting camera
   if (!validatePatientForm()) {
@@ -126,6 +281,12 @@ async function exportToPDFWithPatient() {
     return;
   }
 
+  // Check if encryption is initialized
+  if (!encryption.isInitialized()) {
+    alert("Encryption not initialized. Cannot save patient data.");
+    return;
+  }
+
   try {
     // Generate PDF (returns filename and blob)
     const { filename, pdfBlob } = await exportToPDF(); // Defined in PdfExport.js
@@ -134,10 +295,12 @@ async function exportToPDFWithPatient() {
     currentPatientData.pdfFilename = filename;
     currentPatientData.pdfBlob = pdfBlob;
 
-    // Save complete record to IndexedDB
+    // Save complete record to IndexedDB (encrypted)
     const patientId = await patientDB.addPatient(currentPatientData);
 
-    alert(`Patient record saved successfully! Record ID: ${patientId}`);
+    alert(
+      `Patient record saved successfully!\n\nRecord ID: ${patientId}\nData encrypted and stored securely.`
+    );
   } catch (error) {
     console.error("Error saving patient record:", error);
     alert(
@@ -147,29 +310,35 @@ async function exportToPDFWithPatient() {
   }
 }
 
-// ========== Records Modal Management ==========
+// ========== Records model Management ==========
 
 /**
- * Open modal and load all patient records
+ * Open model and load all patient records
  */
 viewRecordsBtn.addEventListener("click", () => {
-  recordsModal.style.display = "block";
+  // Check if encryption is initialized
+  if (!encryption.isInitialized()) {
+    alert("Encryption not initialized. Please refresh the page.");
+    return;
+  }
+
+  recordsmodel.style.display = "block";
   loadAllRecords();
 });
 
 /**
- * Close modal when X is clicked
+ * Close model when X is clicked
  */
-closeModal.addEventListener("click", () => {
-  recordsModal.style.display = "none";
+closemodel.addEventListener("click", () => {
+  recordsmodel.style.display = "none";
 });
 
 /**
- * Close modal when clicking outside the modal content
+ * Close model when clicking outside the model content
  */
 window.addEventListener("click", (event) => {
-  if (event.target === recordsModal) {
-    recordsModal.style.display = "none";
+  if (event.target === recordsmodel) {
+    recordsmodel.style.display = "none";
   }
 });
 
@@ -181,8 +350,13 @@ window.addEventListener("click", (event) => {
 searchBtn.addEventListener("click", async () => {
   const searchTerm = searchInput.value.trim();
   if (searchTerm) {
-    const results = await patientDB.searchPatientsByName(searchTerm);
-    displayRecords(results);
+    try {
+      const results = await patientDB.searchPatientsByName(searchTerm);
+      displayRecords(results);
+    } catch (error) {
+      console.error("Error searching records:", error);
+      alert("Failed to search records. Please try again.");
+    }
   }
 });
 
@@ -213,7 +387,8 @@ async function loadAllRecords() {
     displayRecords(patients);
   } catch (error) {
     console.error("Error loading records:", error);
-    recordsList.innerHTML = "<p>Error loading records.</p>";
+    recordsList.innerHTML =
+      "<p>Error loading records. Please check your password and try again.</p>";
   }
 }
 
@@ -236,7 +411,7 @@ function displayRecords(patients) {
   patients.forEach((patient) => {
     const date = new Date(patient.createdAt).toLocaleDateString();
 
-    // Define showPdfButton for EACH patient - FIX: This was missing!
+    // Check if PDF is available
     const showPdfButton = patient.pdfBlob || patient.pdfFilename;
 
     html += `<tr>
@@ -276,15 +451,19 @@ async function viewPatientDetails(id) {
         : "PDF: Not available";
 
       alert(
-        `Patient Details:\n\nName: ${patient.name}\nAge: ${patient.age}\nSex: ${
-          patient.sex
-        }\nNotes: ${patient.notes || "None"}\n${pdfInfo}\nCreated: ${new Date(
-          patient.createdAt
-        ).toLocaleString()}`
+        `Patient Details:\n\n` +
+          `Name: ${patient.name}\n` +
+          `Age: ${patient.age}\n` +
+          `Sex: ${patient.sex}\n` +
+          `Notes: ${patient.notes || "None"}\n` +
+          `${pdfInfo}\n` +
+          `Created: ${new Date(patient.createdAt).toLocaleString()}\n\n` +
+          `This data is encrypted in storage.`
       );
     }
   } catch (error) {
     console.error("Error viewing patient:", error);
+    alert("Failed to load patient details. Decryption may have failed.");
   }
 }
 
@@ -295,24 +474,45 @@ async function viewPatientDetails(id) {
 async function downloadPatientPDF(id) {
   try {
     const patient = await patientDB.getPatientById(id);
-    if (patient && patient.pdfBlob) {
-      // Create a download link for the stored PDF blob
-      const url = URL.createObjectURL(patient.pdfBlob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = patient.pdfFilename || `Patient-${id}-Report.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } else {
+
+    if (!patient) {
+      alert("Patient record not found.");
+      return;
+    }
+
+    if (!patient.pdfBlob) {
       alert(
         "PDF file not available. The PDF may have been generated before this feature was added."
       );
+      return;
     }
+
+    // Ensure pdfBlob is a proper Blob object
+    let blob;
+    if (patient.pdfBlob instanceof Blob) {
+      blob = patient.pdfBlob;
+    } else {
+      // If it's not a Blob, try to reconstruct it
+      console.log("Reconstructing blob from stored data");
+      blob = new Blob([patient.pdfBlob], { type: "application/pdf" });
+    }
+
+    // Create a download link for the stored PDF blob
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download =
+      patient.pdfFilename ||
+      `Patient_${patient.id}_${patient.name.replace(/\s+/g, "_")}_Report.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    console.log(`PDF downloaded successfully: ${a.download}`);
   } catch (error) {
     console.error("Error downloading PDF:", error);
-    alert("Failed to download PDF.");
+    alert(`Failed to download PDF: ${error.message}`);
   }
 }
 
@@ -321,7 +521,11 @@ async function downloadPatientPDF(id) {
  * @param {number} id - Patient record ID to delete
  */
 async function deletePatientRecord(id) {
-  if (confirm("Are you sure you want to delete this patient record?")) {
+  if (
+    confirm(
+      "Are you sure you want to delete this patient record?\n\nThis action cannot be undone."
+    )
+  ) {
     try {
       await patientDB.deletePatient(id);
       alert("Record deleted successfully!");
@@ -339,9 +543,3 @@ window.viewPatientDetails = viewPatientDetails;
 window.deletePatientRecord = deletePatientRecord;
 window.exportToPDFWithPatient = exportToPDFWithPatient;
 window.downloadPatientPDF = downloadPatientPDF;
-
-// ========== Debug Logging ==========
-window.addEventListener("load", () => {
-  console.log("Page fully loaded");
-  console.log("init function available:", typeof init !== "undefined");
-});
