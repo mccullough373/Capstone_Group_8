@@ -38,16 +38,35 @@ async function exportToPDF() {
   // ========== Snapshot Section ==========
   const imgData = await getSnapshotDataURL();
   if (imgData) {
-    // Load and scale image to fit page width
+    // Load image and calculate size to fit page while maintaining aspect ratio
     const img = new Image();
     img.src = imgData;
     await new Promise((r) => (img.onload = r));
-    const maxW = w - margin * 2;
-    const scale = maxW / img.width;
-    const drawW = maxW;
-    const drawH = img.height * scale;
-    pdf.addImage(imgData, "JPEG", margin, y, drawW, drawH);
-    y += drawH + 18;
+
+    // Calculate maximum available space on current page
+    const maxWidth = w - margin * 2; // Full page width minus margins
+    const maxHeight = h - y - margin - 100; // Remaining height (leaving room for confidence section)
+
+    // Calculate scaling to maintain aspect ratio while fitting in available space
+    const imgAspectRatio = img.width / img.height;
+    const maxAspectRatio = maxWidth / maxHeight;
+
+    let drawWidth, drawHeight;
+    if (imgAspectRatio > maxAspectRatio) {
+      // Image is wider relative to available space - fit to width
+      drawWidth = maxWidth;
+      drawHeight = maxWidth / imgAspectRatio;
+    } else {
+      // Image is taller relative to available space - fit to height
+      drawHeight = maxHeight;
+      drawWidth = maxHeight * imgAspectRatio;
+    }
+
+    // Center the image horizontally
+    const xOffset = (w - drawWidth) / 2;
+
+    pdf.addImage(imgData, "JPEG", xOffset, y, drawWidth, drawHeight);
+    y += drawHeight + 18;
   } else {
     // Handle case where snapshot is unavailable
     pdf
@@ -103,15 +122,30 @@ const timestamp = () => {
 };
 
 /**
- * Captures current webcam frame as JPEG data URL
- * Tries canvas first, falls back to video element if needed
+ * Captures current webcam frame or uploaded image as JPEG data URL
+ * Tries uploaded image first, then canvas, then video element
  * @returns {string|null} Data URL of snapshot, or null if unavailable
  */
 async function getSnapshotDataURL() {
-  const canvas = document.querySelector("#webcam-container canvas");
-  const video = document.querySelector("#webcam-container video");
+  // Check for uploaded image first
+  const uploadedImg = document.querySelector("#webcam-container img");
+  if (uploadedImg && uploadedImg.src) {
+    // If image is already a data URL, return it directly
+    if (uploadedImg.src.startsWith("data:")) {
+      return uploadedImg.src;
+    }
 
-  // Try canvas element first (preferred)
+    // Otherwise, convert to canvas and get data URL
+    const temp = document.createElement("canvas");
+    temp.width = uploadedImg.naturalWidth || uploadedImg.width;
+    temp.height = uploadedImg.naturalHeight || uploadedImg.height;
+    const ctx = temp.getContext("2d");
+    ctx.drawImage(uploadedImg, 0, 0);
+    return temp.toDataURL("image/jpeg", 0.92);
+  }
+
+  // Try canvas element (webcam)
+  const canvas = document.querySelector("#webcam-container canvas");
   if (canvas) {
     try {
       return canvas.toDataURL("image/jpeg", 0.92);
@@ -119,6 +153,7 @@ async function getSnapshotDataURL() {
   }
 
   // Fallback to video element
+  const video = document.querySelector("#webcam-container video");
   if (video?.videoWidth && video?.videoHeight) {
     const temp = document.createElement("canvas");
     temp.width = video.videoWidth;

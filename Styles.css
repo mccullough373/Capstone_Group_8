@@ -95,13 +95,59 @@ h4 {
   resize: vertical;
 }
 
+.form-group input[type="file"] {
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+}
+
+#image-preview-container {
+  margin-top: 15px;
+  text-align: center;
+}
+
+#image-preview {
+  max-width: 100%;
+  max-height: 300px;
+  border: 2px solid #fff;
+  border-radius: 8px;
+  display: block;
+  margin: 0 auto 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+#remove-image-btn {
+  padding: 8px 16px;
+  background: #f44336;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+#remove-image-btn:hover {
+  background: #da190b;
+  transform: scale(1.05);
+}
+
+.button-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin: 20px auto;
+  max-width: 400px;
+}
+
 #PDFbtn,
 #StartCamBtn,
-#view-records-btn {
+#view-records-btn,
+#back-btn {
   padding: 10px 0;
   cursor: pointer;
   width: 220px;
-  margin: 16px auto;
   font-weight: 700;
   font-size: 1.1rem;
   border: none;
@@ -110,13 +156,13 @@ h4 {
   color: rgb(255, 255, 255);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
   transition: all 0.3s ease;
-  display: block;
   text-align: center;
 }
 
 #PDFbtn:hover,
 #StartCamBtn:hover,
-#view-records-btn:hover {
+#view-records-btn:hover,
+#back-btn:hover {
   background: #333;
   transform: scale(1.05);
 }
@@ -129,7 +175,11 @@ h4 {
 }
 
 /* Initial visibility states - moved from inline styles in HTML */
-#PDFbtn {
+.button-container #PDFbtn {
+  display: none; /* Initially Hidden */
+}
+
+.button-container #back-btn {
   display: none; /* Initially Hidden */
 }
 
@@ -141,26 +191,33 @@ h4 {
   display: block; /* Show form initially */
 }
 
-#view-records-btn {
-  display: inline-block;
-}
-
 #webcam-container {
   width: 90%;
   max-width: 800px;
   margin: 0 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-#webcam-container canvas {
-  width: 100%;
-  max-width: 600px;
-  height: auto;
+/* Only apply min-height when webcam container has content */
+#webcam-container:not(:empty) {
+  min-height: 400px;
+}
+
+#webcam-container canvas,
+#webcam-container img {
+  width: 600px;
+  height: 450px;
+  object-fit: cover;
   border: 4px solid #fff;
   border-radius: 20px;
   display: block;
-  margin: 0 auto;
-  transform: scaleX(-1);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.7);
+}
+
+#webcam-container canvas {
+  transform: scaleX(-1);
 }
 
 #label-container {
@@ -412,9 +469,14 @@ h4 {
     font-size: 18px;
   }
 
+  .button-container {
+    gap: 12px;
+  }
+
   #PDFbtn,
   #StartCamBtn,
-  #view-records-btn {
+  #view-records-btn,
+  #back-btn {
     width: 180px;
     font-size: 1rem;
   }
@@ -443,5 +505,17 @@ h4 {
 
   .search-container input {
     width: 100%;
+  }
+
+  /* Responsive webcam container for mobile */
+  #webcam-container {
+    min-height: 300px;
+  }
+
+  #webcam-container canvas,
+  #webcam-container img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 3;
   }
 }

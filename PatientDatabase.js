@@ -50,16 +50,17 @@ class PatientDatabase {
       );
     }
 
-    return new Promise(async (resolve, reject) => {
-      try {
+    try {
+      // IMPORTANT: Encrypt BEFORE creating transaction to prevent timeout
+      const encryptedData = await encryption.encrypt({
+        ...patientData,
+        createdAt: new Date().toISOString(),
+      });
+
+      // Now create transaction with pre-encrypted data
+      return new Promise((resolve, reject) => {
         const transaction = this.db.transaction(["patients"], "readwrite");
         const objectStore = transaction.objectStore("patients");
-
-        // Encrypt the patient data
-        const encryptedData = await encryption.encrypt({
-          ...patientData,
-          createdAt: new Date().toISOString(),
-        });
 
         // Store encrypted data
         const patient = {
@@ -76,14 +77,14 @@ class PatientDatabase {
         };
 
         request.onerror = () => {
-          console.error("Error adding patient");
+          console.error("Error adding patient:", request.error);
           reject(request.error);
         };
-      } catch (error) {
-        console.error("Encryption error:", error);
-        reject(error);
-      }
-    });
+      });
+    } catch (error) {
+      console.error("Encryption error:", error);
+      throw error;
+    }
   }
 
   // Get all patients (with decryption)
@@ -182,59 +183,47 @@ class PatientDatabase {
 
   // Update patient record (with encryption)
   async updatePatient(id, updates) {
-    return new Promise(async (resolve, reject) => {
-      try {
+    try {
+      // First get the existing record
+      const patient = await this.getPatientById(id);
+
+      if (!patient) {
+        throw new Error("Patient not found");
+      }
+
+      // Merge updates
+      const updatedData = { ...patient, ...updates };
+      delete updatedData.id; // Remove id from data before encryption
+
+      // IMPORTANT: Encrypt BEFORE creating transaction to prevent timeout
+      const encryptedData = await encryption.encrypt(updatedData);
+
+      // Now create transaction with pre-encrypted data
+      return new Promise((resolve, reject) => {
         const transaction = this.db.transaction(["patients"], "readwrite");
         const objectStore = transaction.objectStore("patients");
 
-        // First get the existing record
-        const getRequest = objectStore.get(id);
-
-        getRequest.onsuccess = async () => {
-          const patient = getRequest.result;
-          if (patient) {
-            // Decrypt existing data
-            let existingData = {};
-            if (patient.encrypted) {
-              existingData = await encryption.decrypt(patient.data);
-            } else {
-              existingData = patient;
-            }
-
-            // Merge updates
-            const updatedData = { ...existingData, ...updates };
-
-            // Encrypt updated data
-            const encryptedData = await encryption.encrypt(updatedData);
-
-            const updatedPatient = {
-              id: id,
-              encrypted: true,
-              data: encryptedData,
-              createdAt: patient.createdAt,
-            };
-
-            const updateRequest = objectStore.put(updatedPatient);
-
-            updateRequest.onsuccess = () => {
-              resolve(updatedData);
-            };
-
-            updateRequest.onerror = () => {
-              reject(updateRequest.error);
-            };
-          } else {
-            reject(new Error("Patient not found"));
-          }
+        const updatedPatient = {
+          id: id,
+          encrypted: true,
+          data: encryptedData,
+          createdAt: patient.createdAt,
         };
 
-        getRequest.onerror = () => {
-          reject(getRequest.error);
+        const request = objectStore.put(updatedPatient);
+
+        request.onsuccess = () => {
+          resolve(updatedData);
         };
-      } catch (error) {
-        reject(error);
-      }
-    });
+
+        request.onerror = () => {
+          reject(request.error);
+        };
+      });
+    } catch (error) {
+      console.error("Update patient error:", error);
+      throw error;
+    }
   }
 
   // Delete patient record

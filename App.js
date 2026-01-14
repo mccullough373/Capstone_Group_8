@@ -14,6 +14,7 @@
 // ========== DOM Element References ==========
 const StartCamBtn = document.getElementById("StartCamBtn");
 const PDFbtn = document.getElementById("PDFbtn");
+const backBtn = document.getElementById("back-btn");
 const textElement = document.getElementById("text");
 const patientForm = document.getElementById("patient-form");
 const patientFormContainer = document.getElementById("patient-form-container");
@@ -32,8 +33,17 @@ const masterPasswordInput = document.getElementById("master-password");
 const confirmPasswordInput = document.getElementById("confirm-password");
 const encryptionError = document.getElementById("encryption-error");
 
+// Image upload elements
+const patientImageInput = document.getElementById("patient-image");
+const imagePreviewContainer = document.getElementById(
+  "image-preview-container"
+);
+const imagePreview = document.getElementById("image-preview");
+const removeImageBtn = document.getElementById("remove-image-btn");
+
 // ========== Application State ==========
 let currentPatientData = null;
+let uploadedImageData = null; // Stores base64 data URL of uploaded image
 
 // ========== Encryption & Database Initialization ==========
 
@@ -186,6 +196,57 @@ setupEncryptionBtn.addEventListener("click", async () => {
   }
 });
 
+// ========== Image Upload Handling ==========
+
+/**
+ * Handle image file selection and preview
+ */
+patientImageInput.addEventListener("change", (event) => {
+  const file = event.target.files[0];
+
+  if (file) {
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      alert("Please select a valid image file.");
+      patientImageInput.value = "";
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (file.size > maxSize) {
+      alert("Image file is too large. Please select an image under 5MB.");
+      patientImageInput.value = "";
+      return;
+    }
+
+    // Read and preview the image
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      uploadedImageData = e.target.result; // Store base64 data URL
+      imagePreview.src = uploadedImageData;
+      imagePreviewContainer.style.display = "block";
+      console.log("Image uploaded and previewed successfully");
+    };
+    reader.onerror = () => {
+      alert("Failed to read image file. Please try again.");
+      patientImageInput.value = "";
+    };
+    reader.readAsDataURL(file);
+  }
+});
+
+/**
+ * Handle image removal
+ */
+removeImageBtn.addEventListener("click", () => {
+  uploadedImageData = null;
+  patientImageInput.value = "";
+  imagePreview.src = "";
+  imagePreviewContainer.style.display = "none";
+  console.log("Uploaded image removed");
+});
+
 // ========== Form Validation ==========
 
 /**
@@ -238,9 +299,13 @@ StartCamBtn.addEventListener("click", async () => {
     age: parseInt(document.getElementById("patient-age").value),
     sex: document.getElementById("patient-sex").value,
     notes: document.getElementById("patient-notes").value.trim(),
+    uploadedImage: uploadedImageData, // Include uploaded image data
   };
 
   console.log("Patient data captured:", currentPatientData);
+
+  // Make uploaded image available to TeachableScript.js
+  window.uploadedImageData = uploadedImageData;
 
   // Update button state
   StartCamBtn.disabled = true;
@@ -251,10 +316,11 @@ StartCamBtn.addEventListener("click", async () => {
     await init(); // Defined in TeachableScript.js
     console.log("Camera initialized successfully");
 
-    // Update UI: hide form and start button, show PDF button
+    // Update UI: hide form and start button, show PDF and back buttons
     StartCamBtn.style.display = "none";
-    PDFbtn.style.display = "inline-block";
-    textElement.style.display = "inline-block";
+    PDFbtn.style.display = "block";
+    backBtn.style.display = "block";
+    textElement.style.display = "block";
     patientFormContainer.style.display = "none";
   } catch (error) {
     console.error("Failed to start camera:", error);
@@ -267,6 +333,58 @@ StartCamBtn.addEventListener("click", async () => {
     StartCamBtn.disabled = false;
     StartCamBtn.textContent = "Start Camera Feed";
   }
+});
+
+// ========== Back Button Handler ==========
+
+/**
+ * Handle back button click to return to patient form
+ * Resets the UI and clears webcam/image to add another patient
+ */
+backBtn.addEventListener("click", () => {
+  // Stop and clear webcam if running (webcam variable from TeachableScript.js)
+  if (typeof webcam !== "undefined" && webcam) {
+    try {
+      webcam.stop();
+    } catch (e) {
+      console.log("Webcam already stopped or not initialized");
+    }
+  }
+
+  // Clear webcam container
+  const webcamContainer = document.getElementById("webcam-container");
+  webcamContainer.innerHTML = "";
+
+  // Clear label container
+  const labelContainer = document.getElementById("label-container");
+  if (labelContainer) {
+    labelContainer.innerHTML = "";
+  }
+
+  // Reset application state
+  currentPatientData = null;
+  uploadedImageData = null;
+  window.uploadedImageData = null;
+
+  // Reset form fields
+  document.getElementById("patient-name").value = "";
+  document.getElementById("patient-age").value = "";
+  document.getElementById("patient-sex").value = "";
+  document.getElementById("patient-notes").value = "";
+  patientImageInput.value = "";
+  imagePreview.src = "";
+  imagePreviewContainer.style.display = "none";
+
+  // Update UI: show form and start button, hide scanning elements
+  patientFormContainer.style.display = "block";
+  StartCamBtn.style.display = "block";
+  StartCamBtn.disabled = false;
+  StartCamBtn.textContent = "Start Camera Feed";
+  PDFbtn.style.display = "none";
+  backBtn.style.display = "none";
+  textElement.style.display = "none";
+
+  console.log("Returned to patient form - ready for new patient");
 });
 
 // ========== PDF Export with Database Save ==========

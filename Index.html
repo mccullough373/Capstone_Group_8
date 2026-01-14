@@ -71,6 +71,15 @@
           <label for="patient-notes">Notes (Optional):</label>
           <textarea id="patient-notes" name="notes" rows="3"></textarea>
         </div>
+
+        <div class="form-group">
+          <label for="patient-image">Upload Image (Optional):</label>
+          <input type="file" id="patient-image" name="image" accept="image/*" />
+          <div id="image-preview-container" style="display: none">
+            <img id="image-preview" alt="Image preview" />
+            <button type="button" id="remove-image-btn">Remove Image</button>
+          </div>
+        </div>
       </form>
     </div>
 
@@ -83,6 +92,8 @@
     <div class="button-container">
       <!-- Button to view patient records -->
       <button id="view-records-btn">View Records</button>
+      <!-- Button to go back to patient form -->
+      <button id="back-btn">Add Another Patient</button>
       <!-- Button to trigger PDF export of the current data -->
       <button id="PDFbtn" onclick="exportToPDFWithPatient()">Export PDF</button>
       <!-- Button to trigger camera stream-->

@@ -26,6 +26,8 @@ const CONFIG = {
 // ========== Global State ==========
 let model, webcam, labelContainer, maxPredictions;
 let lastUpdate = 0; // Timestamp of last prediction
+let useUploadedImage = false; // Flag to use uploaded image instead of webcam
+let uploadedImageElement = null; // Image element for uploaded image
 
 // ========== Initialization ==========
 
@@ -43,18 +45,43 @@ async function init() {
     model = await tmImage.load(modelURL, metadataURL);
     maxPredictions = model.getTotalClasses();
 
-    // Initialize webcam with mirroring enabled
-    const flip = true;
-    webcam = new tmImage.Webcam();
-    await webcam.setup(); // Request camera permissions
-    await webcam.play();
+    // Check if user uploaded an image (from App.js global variable)
+    if (window.uploadedImageData) {
+      // Use uploaded image mode
+      useUploadedImage = true;
+      uploadedImageElement = new Image();
+      uploadedImageElement.src = window.uploadedImageData;
 
-    // Start prediction loop
-    window.requestAnimationFrame(loop);
+      await new Promise((resolve, reject) => {
+        uploadedImageElement.onload = resolve;
+        uploadedImageElement.onerror = reject;
+      });
 
-    // Add webcam canvas to DOM
-    document.getElementById("webcam-container").appendChild(webcam.canvas);
-    labelContainer = document.getElementById("label-container");
+      // Display uploaded image in webcam container
+      // Styles are handled by CSS for consistent sizing
+      document
+        .getElementById("webcam-container")
+        .appendChild(uploadedImageElement);
+
+      labelContainer = document.getElementById("label-container");
+
+      // Run prediction once for uploaded image
+      await predict();
+    } else {
+      // Use webcam mode (original behavior)
+      useUploadedImage = false;
+      const flip = true;
+      webcam = new tmImage.Webcam();
+      await webcam.setup(); // Request camera permissions
+      await webcam.play();
+
+      // Start prediction loop
+      window.requestAnimationFrame(loop);
+
+      // Add webcam canvas to DOM
+      document.getElementById("webcam-container").appendChild(webcam.canvas);
+      labelContainer = document.getElementById("label-container");
+    }
   } catch (error) {
     console.error("Initialization error:", error);
     alert(
@@ -78,23 +105,26 @@ async function init() {
 /**
  * Main animation loop for webcam updates and periodic predictions
  * Runs continuously via requestAnimationFrame
+ * Only runs when using webcam mode
  */
 async function loop() {
-  webcam.update(); // Keep video feed smooth
-  window.requestAnimationFrame(loop);
+  if (!useUploadedImage && webcam) {
+    webcam.update(); // Keep video feed smooth
+    window.requestAnimationFrame(loop);
 
-  // Run prediction at configured interval
-  const now = Date.now();
-  if (now - lastUpdate >= CONFIG.UPDATE_INTERVAL) {
-    await predict();
-    lastUpdate = now;
+    // Run prediction at configured interval
+    const now = Date.now();
+    if (now - lastUpdate >= CONFIG.UPDATE_INTERVAL) {
+      await predict();
+      lastUpdate = now;
+    }
   }
 }
 
 // ========== Prediction ==========
 
 /**
- * Runs ML prediction on current webcam frame
+ * Runs ML prediction on current webcam frame or uploaded image
  * Finds PG classification and displays color-coded confidence level
  *
  * Color Coding:
@@ -103,8 +133,17 @@ async function loop() {
  * - Red (<40%): Low confidence - likely not PG
  */
 async function predict() {
-  // Run model inference on current frame
-  const prediction = await model.predict(webcam.canvas);
+  let prediction;
+
+  // Run model inference on either uploaded image or webcam
+  if (useUploadedImage && uploadedImageElement) {
+    prediction = await model.predict(uploadedImageElement);
+  } else if (webcam?.canvas) {
+    prediction = await model.predict(webcam.canvas);
+  } else {
+    console.error("No image source available for prediction");
+    return;
+  }
 
   // Find PG prediction (assumes class name contains "pg")
   let pgPrediction = null;
