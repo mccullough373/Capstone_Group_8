@@ -208,5 +208,14 @@ function checkLighting() {
     bg = "rgba(234, 179, 8, 0.9)"; // yellow
   }
 
-  lightingDiv.innerHTML = `<div style="background:${bg}; padding:8px 12px; border-radius:8px; color:white; font-weight:bold; margin-top:6px;">${label}</div>`;
+  lightingDiv.innerHTML = `<div style="
+  background: ${bg};
+  padding: 12px 24px;
+  border-radius: 12px;
+  color: white;
+  font-weight: bold;
+  width: fit-content;
+  margin: 0 auto;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.7);
+">${label}</div>`;
 }

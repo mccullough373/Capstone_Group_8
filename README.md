@@ -24,9 +24,19 @@ A web-based AI tool that uses machine learning to assist healthcare professional
 **2. Run the launcher script for your OS**
 
 - **Windows:** Double-click `PG Scanner Launcher.bat`
-- **Mac:** Double-click `start_pg_scanner.sh` (or run `bash start_pg_scanner.sh` in terminal)
+- **Mac:** Double-click `start_pg_scanner.command`
 
 The script will start a local server and open the app in your browser automatically.
+
+**Mac users — first time only:**
+
+macOS may block the file since it was downloaded from the internet. If you see a security warning:
+
+1. Go to **System Settings → Privacy & Security**
+2. Scroll down and click **Allow Anyway** next to the PG Scanner message
+3. Double-click the file again and click **Open**
+
+**This only needs to be done once**
 
 **3. Create a master password on first launch**
 
@@ -37,13 +47,10 @@ The script will start a local server and open the app in your browser automatica
 ## How to Use
 
 1. Enter patient name, age, and sex
-2. If doing an image upload click **Choose File** and pick desired image
-3. Otherwise click **Start Camera Feed** and allow webcam access
-4. Hold the skin ulcer ~6 inches from the camera
-5. View the real-time confidence result and lighting indicator
-6. Click **Export PDF** to save the report and patient record
-7. Once you are done with the app close the browser tab and the
-   Terminal/Command Prompt
+2. Click **Start Camera Feed** and allow webcam access
+3. Hold the skin ulcer ~6 inches from the camera
+4. View the real-time confidence result and lighting indicator
+5. Click **Export PDF** to save the report and patient record
 
 To view or search past records, click **View Records**.
 
@@ -53,18 +60,18 @@ To view or search past records, click **View Records**.
 
 ```
 pg-scanner/
-├── Index.html          # Main page
-├── Styles.css          # Styling
-├── App.js              # App logic
-├── TeachableScript.js  # ML inference
-├── PatientDatabase.js  # Patient records (IndexedDB)
-├── PdfExport.js        # PDF generation
-├── Encryption.js       # AES-256-GCM encryption
+├── Index.html                  # Main page
+├── Styles.css                  # Styling
+├── App.js                      # App logic
+├── TeachableScript.js          # ML inference
+├── PatientDatabase.js          # Patient records (IndexedDB)
+├── PdfExport.js                # PDF generation
+├── Encryption.js               # AES-256-GCM encryption
 ├── model.json                  # Trained model
 ├── metadata.json               # Model metadata
 ├── model.weights.bin           # Model weights
 ├── PG Scanner Launcher.bat     # Windows launcher
-└── start_pg_scanner.sh         # Mac launcher
+└── start_pg_scanner.command    # Mac launcher
 ```
 
 ---
