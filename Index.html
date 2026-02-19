@@ -5,9 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PG Scanner</title>
     <link rel="stylesheet" href="Styles.css" />
-    <!-- Load TensorFlow.js library for machine learning -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-    <!-- Load Teachable Machine Image library for image classification -->
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
   </head>
   <body>
@@ -18,17 +16,14 @@
       <div class="model-content">
         <h2>Security Setup Required</h2>
         <p>Set a master password to encrypt patient data:</p>
-
         <div class="form-group">
           <label for="master-password">Master Password:</label>
           <input type="password" id="master-password" required />
         </div>
-
         <div class="form-group">
           <label for="confirm-password">Confirm Password:</label>
           <input type="password" id="confirm-password" required />
         </div>
-
         <button id="setup-encryption-btn" class="encryption-btn">
           Setup Encryption
         </button>
@@ -44,7 +39,6 @@
           <label for="patient-name">Patient Name:</label>
           <input type="text" id="patient-name" name="name" required />
         </div>
-
         <div class="form-group">
           <label for="patient-age">Age:</label>
           <input
@@ -56,7 +50,6 @@
             required
           />
         </div>
-
         <div class="form-group">
           <label for="patient-sex">Sex:</label>
           <select id="patient-sex" name="sex" required>
@@ -66,12 +59,10 @@
             <option value="Other">Other</option>
           </select>
         </div>
-
         <div class="form-group">
           <label for="patient-notes">Notes (Optional):</label>
           <textarea id="patient-notes" name="notes" rows="3"></textarea>
         </div>
-
         <div class="form-group">
           <label for="patient-image">Upload Image (Optional):</label>
           <input type="file" id="patient-image" name="image" accept="image/*" />
@@ -83,24 +74,27 @@
       </form>
     </div>
 
-    <h4 id="text">Image Preview</h4>
-    <!-- Container where the webcam feed will be displayed -->
-    <div class="camPlaceHolder" id="webcam-container"></div>
-    <!-- Container to display confidence levels of predictions -->
-    <div id="label-container"></div>
+    <h4 id="text">Scan Results</h4>
 
-    <div class="button-container">
-      <!-- Button to view patient records -->
-      <button id="view-records-btn">View Records</button>
-      <!-- Button to go back to patient form -->
-      <button id="back-btn">Add Another Patient</button>
-      <!-- Button to trigger PDF export of the current data -->
-      <button id="PDFbtn" onclick="exportToPDFWithPatient()">Export PDF</button>
-      <!-- Button to trigger camera stream-->
-      <button id="StartCamBtn">Start Camera Feed</button>
+    <!-- Scanner layout: camera left, sidebar right -->
+    <div class="scanner-layout">
+      <div class="camPlaceHolder" id="webcam-container"></div>
+
+      <div class="scanner-sidebar">
+        <div id="label-container"></div>
+        <div id="lighting-container"></div>
+        <div class="button-container">
+          <button id="view-records-btn">View Records</button>
+          <button id="back-btn">Add Another Patient</button>
+          <button id="PDFbtn" onclick="exportToPDFWithPatient()">
+            Export PDF
+          </button>
+          <button id="StartCamBtn">Start Camera Feed</button>
+        </div>
+      </div>
     </div>
 
-    <!-- model for viewing patient records -->
+    <!-- Modal for viewing patient records -->
     <div id="records-model" class="model">
       <div class="model-content">
         <span class="close">&times;</span>

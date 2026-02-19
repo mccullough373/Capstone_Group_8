@@ -85,7 +85,7 @@ async function init() {
   } catch (error) {
     console.error("Initialization error:", error);
     alert(
-      "Failed to initialize. Please check camera permissions and internet connection."
+      "Failed to initialize. Please check camera permissions and internet connection.",
     );
 
     // Re-enable start button on failure
@@ -150,6 +150,7 @@ async function predict() {
   for (let i = 0; i < maxPredictions; i++) {
     if (prediction[i].className.toLowerCase().includes("pg")) {
       pgPrediction = prediction[i];
+      checkLighting();
       break;
     }
   }
@@ -175,4 +176,37 @@ async function predict() {
 
     labelContainer.appendChild(resultDiv);
   }
+}
+
+function checkLighting() {
+  const canvas = webcam.canvas;
+  if (!canvas) return;
+
+  const ctx = canvas.getContext("2d");
+  const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+  // Calculate average brightness across all pixels
+  let total = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    // Standard luminance formula
+    total += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+  }
+  const brightness = total / (data.length / 4); // 0–255
+
+  const lightingDiv = document.getElementById("lighting-container");
+  if (!lightingDiv) return;
+
+  let label, bg;
+  if (brightness >= 80 && brightness <= 200) {
+    label = "Lighting: Good";
+    bg = "rgba(34, 197, 94, 0.9)"; // green
+  } else if (brightness < 80) {
+    label = "Lighting: Too Dark";
+    bg = "rgba(239, 68, 68, 0.9)"; // red
+  } else {
+    label = "Lighting: Too Bright";
+    bg = "rgba(234, 179, 8, 0.9)"; // yellow
+  }
+
+  lightingDiv.innerHTML = `<div style="background:${bg}; padding:8px 12px; border-radius:8px; color:white; font-weight:bold; margin-top:6px;">${label}</div>`;
 }
