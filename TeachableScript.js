@@ -28,6 +28,7 @@ let model, webcam, labelContainer, maxPredictions;
 let lastUpdate = 0; // Timestamp of last prediction
 let useUploadedImage = false; // Flag to use uploaded image instead of webcam
 let uploadedImageElement = null; // Image element for uploaded image
+let isRunning = false; // add this near your other global state variables
 
 // ========== Initialization ==========
 
@@ -44,6 +45,7 @@ async function init() {
     // Load pre-trained model and metadata
     model = await tmImage.load(modelURL, metadataURL);
     maxPredictions = model.getTotalClasses();
+    isRunning = true;
 
     // Check if user uploaded an image (from App.js global variable)
     if (window.uploadedImageData) {
@@ -108,11 +110,12 @@ async function init() {
  * Only runs when using webcam mode
  */
 async function loop() {
+  if (!isRunning) return; // check FIRST before anything else
+
   if (!useUploadedImage && webcam) {
-    webcam.update(); // Keep video feed smooth
+    webcam.update();
     window.requestAnimationFrame(loop);
 
-    // Run prediction at configured interval
     const now = Date.now();
     if (now - lastUpdate >= CONFIG.UPDATE_INTERVAL) {
       await predict();
