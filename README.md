@@ -2,7 +2,7 @@
 
 A web-based AI tool that uses machine learning to assist healthcare professionals in detecting Pyoderma Gangrenosum (PG) through live webcam analysis.
 
-> **Disclaimer:** This is a capstone project for educational purposes only. Not intended for clinical use.
+> **Disclaimer:** PG Scanner is not medical advice please seek a medical professional for serious concerns
 
 ---
 
