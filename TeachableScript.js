@@ -78,15 +78,26 @@ async function init(imageData) {
     } else {
       // --- Live webcam mode ---
       useUploadedImage = false;
-      webcam = new tmImage.Webcam();
-      await webcam.setup(); // Request camera permissions from the browser
-      await webcam.play();
+
+      // Use getUserMedia directly so we can request the rear camera on iOS.
+      // tmImage.Webcam does not expose a facingMode option.
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false,
+      });
+
+      videoElement = document.createElement("video");
+      videoElement.srcObject = stream;
+      videoElement.setAttribute("playsinline", ""); // Required for iOS Safari
+      videoElement.setAttribute("autoplay", "");
+      videoElement.setAttribute("muted", "");
+      await videoElement.play();
 
       // Start the continuous prediction loop
       window.requestAnimationFrame(loop);
 
-      // Add the webcam canvas to the DOM
-      document.getElementById("webcam-container").appendChild(webcam.canvas);
+      // Add the video element to the DOM
+      document.getElementById("webcam-container").appendChild(videoElement);
       labelContainer = document.getElementById("label-container");
     }
   } catch (error) {
@@ -118,8 +129,7 @@ async function init(imageData) {
 async function loop() {
   if (!isRunning) return; // Stop immediately if the back button was pressed
 
-  if (!useUploadedImage && webcam) {
-    webcam.update(); // Advance the webcam frame
+  if (!useUploadedImage && videoElement) {
 
     // Schedule the next frame before awaiting predict() to keep the loop smooth
     window.requestAnimationFrame(loop);
@@ -157,8 +167,8 @@ async function predict() {
     offscreen.height = uploadedImageElement.naturalHeight;
     offscreen.getContext("2d").drawImage(uploadedImageElement, 0, 0);
     prediction = await model.predict(offscreen);
-  } else if (webcam?.canvas) {
-    prediction = await model.predict(webcam.canvas);
+  } else if (videoElement) {
+    prediction = await model.predict(videoElement);
   } else {
     console.error("No image source available for prediction");
     return;
@@ -212,10 +222,13 @@ async function predict() {
  * Skipped automatically when using an uploaded image instead of the webcam.
  */
 function checkLighting() {
-  const canvas = webcam?.canvas;
-  if (!canvas) return; // No webcam canvas available (uploaded image mode)
+  if (!videoElement || videoElement.readyState < 2) return; // No video available (uploaded image mode)
 
+  const canvas = document.createElement("canvas");
+  canvas.width = videoElement.videoWidth;
+  canvas.height = videoElement.videoHeight;
   const ctx = canvas.getContext("2d");
+  ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
   const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
   // Calculate average luminance across all pixels using the standard
