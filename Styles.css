@@ -206,7 +206,6 @@ h4 {
 }
 
 #webcam-container canvas,
-#webcam-container video,
 #webcam-container img {
   width: 600px;
   height: 450px;
@@ -219,11 +218,6 @@ h4 {
 
 #webcam-container canvas {
   transform: scaleX(-1);
-}
-
-#webcam-container video {
-  transform: none;
-  max-width: 100%;
 }
 
 #label-container {
@@ -519,7 +513,6 @@ h4 {
   }
 
   #webcam-container canvas,
-  #webcam-container video,
   #webcam-container img {
     width: 100%;
     height: auto;
