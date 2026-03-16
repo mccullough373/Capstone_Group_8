@@ -1,12 +1,14 @@
 /**
- * App.js - PG Scanner Main Application Logic
+ * App.js - PG Scanner Main Application Logic - FIXED PASSWORD VERIFICATION
  *
  * Handles:
- * - Encryption setup and password verification on page load
- * - Patient form validation and data capture
- * - Camera / image scan initialization
- * - Patient record management (create, read, delete)
- * - PDF export and database integration
+ * - Encryption setup and initialization with verification token
+ * - Proper password verification on load
+ * - Patient form validation
+ * - Camera initialization
+ * - Patient record management (CRUD operations)
+ * - model interactions
+ * - Database integration
  */
 
 // ========== DOM Element References ==========
@@ -46,9 +48,7 @@ let uploadedImageData = null; // Stores base64 data URL of uploaded image
 // ========== Encryption & Database Initialization ==========
 
 /**
- * On page load, check whether encryption has been set up before.
- * - First visit: show the encryption setup modal.
- * - Returning user: prompt for the master password to unlock the app.
+ * Initialize encryption and database on page load
  */
 window.addEventListener("load", async () => {
   console.log("Page fully loaded");
@@ -58,8 +58,8 @@ window.addEventListener("load", async () => {
   const hasEncryption = localStorage.getItem("encryption_salt");
 
   if (!hasEncryption) {
-    // First time - show encryption setup modal
-    console.log("First time setup - showing encryption modal");
+    // First time - show encryption setup model
+    console.log("First time setup - showing encryption model");
     encryptionmodel.style.display = "block";
   } else {
     // Returning user - ask for password with verification
@@ -68,9 +68,8 @@ window.addEventListener("load", async () => {
 });
 
 /**
- * Prompts the returning user for their master password.
- * Verifies the entry by attempting to decrypt a stored verification token.
- * Locks the app after 3 consecutive failed attempts.
+ * Prompt user for master password to unlock application
+ * NOW WITH PROPER PASSWORD VERIFICATION USING A TEST TOKEN!
  */
 async function promptForPassword() {
   let attempts = 0;
@@ -90,12 +89,11 @@ async function promptForPassword() {
     }
 
     try {
-      // Step 1: Derive an AES-GCM key from the entered password
+      // Step 1: Initialize encryption with the password
       await encryption.init(password);
       console.log("Encryption key generated from password");
 
-      // Step 2: Verify the password is correct by decrypting the stored token.
-      // If the wrong password was entered, decryption will throw an error.
+      // Step 2: CRITICAL - Verify password by decrypting the stored verification token
       const verificationToken = localStorage.getItem("encryption_verification");
 
       if (!verificationToken) {
@@ -115,7 +113,7 @@ async function promptForPassword() {
 
       // Check if the decrypted token matches our expected value
       if (decryptedToken.verify === "PG_SCANNER_AUTH_TOKEN") {
-        console.log("Password verified successfully!");
+        console.log(" Password verified successfully!");
 
         // Step 3: Initialize database after successful verification
         await patientDB.init();
@@ -129,7 +127,7 @@ async function promptForPassword() {
       console.error("Password verification failed:", error);
       attempts++;
 
-      // Clear the derived key so it cannot be used after a failed attempt
+      // Reset encryption key on failed attempt
       encryption.key = null;
 
       if (attempts >= maxAttempts) {
@@ -145,10 +143,8 @@ async function promptForPassword() {
 }
 
 /**
- * Handles first-time encryption setup.
- * Validates the password strength and match, derives an AES-GCM key,
- * stores an encrypted verification token in localStorage, then opens
- * the database so the app is ready to use.
+ * Handle encryption setup for first-time users
+ * NOW CREATES A VERIFICATION TOKEN!
  */
 setupEncryptionBtn.addEventListener("click", async () => {
   const password = masterPasswordInput.value;
@@ -156,7 +152,7 @@ setupEncryptionBtn.addEventListener("click", async () => {
 
   // Validate password length
   if (!password || password.length < 8) {
-    encryptionError.textContent = "Password must be at least 12 characters";
+    encryptionError.textContent = "Password must be at least 8 characters";
     encryptionError.style.display = "block";
     return;
   }
@@ -169,12 +165,11 @@ setupEncryptionBtn.addEventListener("click", async () => {
   }
 
   try {
-    // Derive the AES-GCM key from the master password
+    // Initialize encryption with master password
     await encryption.init(password);
     console.log("Encryption initialized successfully");
 
-    // Store a known plaintext encrypted with the key so we can verify
-    // the correct password is entered on future visits.
+    // CRITICAL: Create and store a verification token
     const verificationData = {
       verify: "PG_SCANNER_AUTH_TOKEN",
       created: new Date().toISOString(),
@@ -184,11 +179,11 @@ setupEncryptionBtn.addEventListener("click", async () => {
     localStorage.setItem("encryption_verification", encryptedToken);
     console.log("Verification token created and stored");
 
-    // Initialize the IndexedDB patient database
+    // Initialize database
     await patientDB.init();
     console.log("Patient database initialized");
 
-    // Hide modal and prompt the user to remember their password
+    // Hide model and show success message
     encryptionmodel.style.display = "none";
     alert(
       "Encryption setup successful!\n\nIMPORTANT: Remember your password - it cannot be recovered!",
@@ -203,9 +198,7 @@ setupEncryptionBtn.addEventListener("click", async () => {
 // ========== Image Upload Handling ==========
 
 /**
- * Validates and previews the selected image file.
- * Rejects non-image files and files larger than 5 MB.
- * On success, reads the file as a base64 data URL and shows a thumbnail.
+ * Handle image file selection and preview
  */
 patientImageInput.addEventListener("change", (event) => {
   const file = event.target.files[0];
@@ -217,7 +210,7 @@ patientImageInput.addEventListener("change", (event) => {
       return;
     }
 
-    const maxSize = 5 * 1024 * 1024; // 5 MB limit
+    const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
       alert("Image file is too large. Please select an image under 5MB.");
       patientImageInput.value = "";
@@ -240,7 +233,7 @@ patientImageInput.addEventListener("change", (event) => {
 });
 
 /**
- * Clears the uploaded image and hides the preview thumbnail.
+ * Handle image removal
  */
 removeImageBtn.addEventListener("click", () => {
   uploadedImageData = null;
@@ -253,8 +246,8 @@ removeImageBtn.addEventListener("click", () => {
 // ========== Form Validation ==========
 
 /**
- * Validates patient form inputs before camera activation.
- * @returns {boolean} True if all required fields are valid, false otherwise
+ * Validates patient form inputs before camera activation
+ * @returns {boolean} True if all required fields are valid
  */
 function validatePatientForm() {
   const name = document.getElementById("patient-name").value.trim();
@@ -279,11 +272,10 @@ function validatePatientForm() {
 // ========== Camera Initialization ==========
 
 /**
- * Captures the patient form data, then calls init() in TeachableScript.js
- * to start the ML scan using either the uploaded image or the webcam.
+ * Start Camera button event handler
  */
 StartCamBtn.addEventListener("click", async () => {
-  console.log("Start Scan button clicked");
+  console.log("Start Camera button clicked");
 
   if (!encryption.isInitialized()) {
     alert("Encryption not initialized. Please refresh the page.");
@@ -294,7 +286,6 @@ StartCamBtn.addEventListener("click", async () => {
     return;
   }
 
-  // Snapshot the form values into the current patient object
   currentPatientData = {
     name: document.getElementById("patient-name").value.trim(),
     age: parseInt(document.getElementById("patient-age").value),
@@ -303,13 +294,16 @@ StartCamBtn.addEventListener("click", async () => {
     uploadedImage: uploadedImageData,
   };
 
+  console.log("Patient data captured:", currentPatientData);
+
+  window.uploadedImageData = uploadedImageData;
+
   StartCamBtn.disabled = true;
   StartCamBtn.textContent = "Loading...";
 
   try {
     console.log("Calling init() function...");
-    // Pass uploadedImageData directly so it never needs to be a window global
-    await init(uploadedImageData);
+    await init();
     console.log("Camera initialized successfully");
 
     StartCamBtn.style.display = "none";
@@ -324,21 +318,20 @@ StartCamBtn.addEventListener("click", async () => {
         error.message,
     );
     StartCamBtn.disabled = false;
-    StartCamBtn.textContent = "Start Scan";
+    StartCamBtn.textContent = "Start Camera Feed";
   }
 });
 
 // ========== Back Button Handler ==========
 
 /**
- * Stops the ML scan, tears down the webcam, clears the form,
- * and returns the UI to the patient entry screen.
+ * Handle back button click to return to patient form
  */
 backBtn.addEventListener("click", () => {
-  // Signal the prediction loop to stop
+  // Stop the prediction loop first
   isRunning = false;
 
-  // Stop and clear webcam if it was running in webcam mode
+  // Stop and clear webcam if running
   if (typeof webcam !== "undefined" && webcam) {
     try {
       webcam.stop();
@@ -347,19 +340,20 @@ backBtn.addEventListener("click", () => {
     }
   }
 
-  // Wait for any in-flight predict() calls to finish before clearing the DOM
+  // Wait for any in-flight predict() calls to finish before clearing
   setTimeout(() => {
     document.getElementById("label-container").innerHTML = "";
     document.getElementById("lighting-container").innerHTML = "";
   }, 100);
 
-  // Remove webcam canvas or uploaded image from the container
+  // Clear webcam container
   const webcamContainer = document.getElementById("webcam-container");
   webcamContainer.innerHTML = "";
 
   // Reset application state
   currentPatientData = null;
   uploadedImageData = null;
+  window.uploadedImageData = null;
 
   // Reset form fields
   document.getElementById("patient-name").value = "";
@@ -370,11 +364,11 @@ backBtn.addEventListener("click", () => {
   imagePreview.src = "";
   imagePreviewContainer.style.display = "none";
 
-  // Restore the patient entry UI
+  // Update UI
   patientFormContainer.style.display = "block";
   StartCamBtn.style.display = "block";
   StartCamBtn.disabled = false;
-  StartCamBtn.textContent = "Start Scan";
+  StartCamBtn.textContent = "Start Camera Feed";
   PDFbtn.style.display = "none";
   backBtn.style.display = "none";
   textElement.style.display = "none";
@@ -385,8 +379,7 @@ backBtn.addEventListener("click", () => {
 // ========== PDF Export with Database Save ==========
 
 /**
- * Generates a PDF report for the current scan result, then saves the patient
- * record (including the PDF blob) to the encrypted IndexedDB database.
+ * Exports current scan to PDF and saves patient record to database
  */
 async function exportToPDFWithPatient() {
   if (!currentPatientData) {
@@ -419,9 +412,8 @@ async function exportToPDFWithPatient() {
   }
 }
 
-// ========== Records Modal Management ==========
+// ========== Records model Management ==========
 
-// Open the records modal and load all stored patient records.
 viewRecordsBtn.addEventListener("click", () => {
   if (!encryption.isInitialized()) {
     alert("Encryption not initialized. Please refresh the page.");
@@ -432,12 +424,10 @@ viewRecordsBtn.addEventListener("click", () => {
   loadAllRecords();
 });
 
-// Close the records modal when the × button is clicked.
 closemodel.addEventListener("click", () => {
   recordsmodel.style.display = "none";
 });
 
-// Close the records modal when clicking outside of it.
 window.addEventListener("click", (event) => {
   if (event.target === recordsmodel) {
     recordsmodel.style.display = "none";
@@ -446,12 +436,11 @@ window.addEventListener("click", (event) => {
 
 // ========== Search Functionality ==========
 
-// Search patients by name or ID when the search button is clicked.
 searchBtn.addEventListener("click", async () => {
   const searchTerm = searchInput.value.trim();
   if (searchTerm) {
     try {
-      const results = await patientDB.searchPatients(searchTerm);
+      const results = await patientDB.searchPatientsByName(searchTerm);
       displayRecords(results);
     } catch (error) {
       console.error("Error searching records:", error);
@@ -460,12 +449,10 @@ searchBtn.addEventListener("click", async () => {
   }
 });
 
-// Reset the list to show all records.
 showAllBtn.addEventListener("click", () => {
   loadAllRecords();
 });
 
-// Allow pressing Enter in the search box to trigger the search.
 searchInput.addEventListener("keypress", (e) => {
   if (e.key === "Enter") {
     searchBtn.click();
@@ -474,9 +461,6 @@ searchInput.addEventListener("keypress", (e) => {
 
 // ========== Database Operations ==========
 
-/**
- * Loads all patient records from the database and renders them in the modal.
- */
 async function loadAllRecords() {
   try {
     const patients = await patientDB.getAllPatients();
@@ -488,12 +472,6 @@ async function loadAllRecords() {
   }
 }
 
-/**
- * Renders patient records as an HTML table inside the records modal.
- * Each row shows ID, name, age, sex, date, and action buttons.
- * A "Download PDF" button is only shown if a PDF blob is stored for the record.
- * @param {Array} patients - Array of decrypted patient objects from the database
- */
 function displayRecords(patients) {
   if (patients.length === 0) {
     recordsList.innerHTML = "<p>No records found.</p>";
@@ -531,10 +509,6 @@ function displayRecords(patients) {
   recordsList.innerHTML = html;
 }
 
-/**
- * Fetches a single patient record by ID and shows its details in an alert dialog.
- * @param {number} id - The patient's database record ID
- */
 async function viewPatientDetails(id) {
   try {
     const patient = await patientDB.getPatientById(id);
@@ -562,11 +536,6 @@ async function viewPatientDetails(id) {
   }
 }
 
-/**
- * Downloads the stored PDF report for a patient, triggering a browser save dialog.
- * Reconstructs the PDF Blob from stored data if it isn't already a Blob instance.
- * @param {number} id - The patient's database record ID
- */
 async function downloadPatientPDF(id) {
   try {
     const patient = await patientDB.getPatientById(id);
@@ -583,7 +552,6 @@ async function downloadPatientPDF(id) {
       return;
     }
 
-    // Ensure we have a proper Blob (older records may store raw ArrayBuffer data)
     let blob;
     if (patient.pdfBlob instanceof Blob) {
       blob = patient.pdfBlob;
@@ -592,7 +560,6 @@ async function downloadPatientPDF(id) {
       blob = new Blob([patient.pdfBlob], { type: "application/pdf" });
     }
 
-    // Create a temporary anchor element to trigger the file download
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -602,7 +569,7 @@ async function downloadPatientPDF(id) {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url); // Free the object URL after download
+    URL.revokeObjectURL(url);
 
     console.log(`PDF downloaded successfully: ${a.download}`);
   } catch (error) {
@@ -611,10 +578,6 @@ async function downloadPatientPDF(id) {
   }
 }
 
-/**
- * Asks for confirmation then permanently removes a patient record from the database.
- * @param {number} id - The patient's database record ID
- */
 async function deletePatientRecord(id) {
   if (
     confirm(
@@ -624,7 +587,7 @@ async function deletePatientRecord(id) {
     try {
       await patientDB.deletePatient(id);
       alert("Record deleted successfully!");
-      loadAllRecords(); // Refresh the list after deletion
+      loadAllRecords();
     } catch (error) {
       console.error("Error deleting patient:", error);
       alert("Failed to delete record.");
@@ -633,8 +596,6 @@ async function deletePatientRecord(id) {
 }
 
 // ========== Global Function Exports ==========
-// These functions are called from onclick attributes in dynamically generated HTML
-// (see displayRecords), so they must be exposed on the window object.
 window.viewPatientDetails = viewPatientDetails;
 window.deletePatientRecord = deletePatientRecord;
 window.exportToPDFWithPatient = exportToPDFWithPatient;
