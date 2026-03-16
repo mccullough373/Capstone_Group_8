@@ -26,6 +26,7 @@ const CONFIG = {
 
 // ========== Global State ==========
 let model, webcam, labelContainer, maxPredictions;
+let videoElement = null; // Raw video element used when tmImage.Webcam can't use rear camera
 let lastUpdate = 0; // Timestamp of the last prediction run
 let useUploadedImage = false; // True when classifying a still image instead of webcam
 let uploadedImageElement = null; // <img> element holding the uploaded image
@@ -78,22 +79,7 @@ async function init(imageData) {
       // --- Live webcam mode ---
       useUploadedImage = false;
       webcam = new tmImage.Webcam();
-
-      // Find the rear-facing camera device ID (needed for iOS Safari)
-      let rearDeviceId;
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter((d) => d.kind === "videoinput");
-        // iOS labels rear cameras with "Back" or "environment"
-        const rearDevice = videoDevices.find((d) =>
-          /back|rear|environment/i.test(d.label)
-        );
-        rearDeviceId = rearDevice?.deviceId;
-      } catch (_) {
-        // enumerateDevices failed — fall back to default camera
-      }
-
-      await webcam.setup(rearDeviceId); // Pass rear camera deviceId, or undefined to use default
+      await webcam.setup(); // Request camera permissions from the browser
       await webcam.play();
 
       // Start the continuous prediction loop
