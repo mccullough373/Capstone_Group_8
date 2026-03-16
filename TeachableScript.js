@@ -74,7 +74,7 @@ async function init() {
       useUploadedImage = false;
       const flip = true;
       webcam = new tmImage.Webcam();
-      await webcam.setup(); // Request camera permissions
+      await webcam.setup({ facingMode: "environment" }); // Request camera permissions
       await webcam.play();
 
       // Start prediction loop
