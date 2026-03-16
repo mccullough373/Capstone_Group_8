@@ -26,11 +26,14 @@ const CONFIG = {
 
 // ========== Global State ==========
 let model, webcam, labelContainer, maxPredictions;
-let videoElement = null; // Raw video element used when tmImage.Webcam can't use rear camera
 let lastUpdate = 0; // Timestamp of the last prediction run
 let useUploadedImage = false; // True when classifying a still image instead of webcam
 let uploadedImageElement = null; // <img> element holding the uploaded image
 let isRunning = false; // Controls whether the prediction loop is active
+
+// Default to rear camera on mobile, front camera on desktop
+const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+let currentFacingMode = isMobile ? "environment" : "user";
 
 // ========== Initialization ==========
 
@@ -78,16 +81,16 @@ async function init(imageData) {
     } else {
       // --- Live webcam mode ---
       useUploadedImage = false;
-      webcam = new tmImage.Webcam();
-      await webcam.setup(); // Request camera permissions from the browser
-      await webcam.play();
+      await startWebcam();
 
       // Start the continuous prediction loop
       window.requestAnimationFrame(loop);
 
-      // Add the webcam canvas to the DOM
-      document.getElementById("webcam-container").appendChild(webcam.canvas);
       labelContainer = document.getElementById("label-container");
+
+      // Show the flip button now that the camera is running
+      const flipBtn = document.getElementById("FlipCamBtn");
+      if (flipBtn) flipBtn.style.display = "inline-block";
     }
   } catch (error) {
     console.error("Initialization error:", error);
@@ -106,6 +109,66 @@ async function init(imageData) {
     throw error;
   }
 }
+
+// ========== Camera Setup ==========
+
+/**
+ * Starts the webcam using getUserMedia with the current facing mode.
+ * Builds a proxy object that matches the tmImage.Webcam interface
+ * (canvas + update()) so the rest of the code works unchanged.
+ * Using getUserMedia directly lets us control facingMode, which the
+ * Teachable Machine library hardcodes to "user" (front camera).
+ */
+async function startWebcam() {
+  const container = document.getElementById("webcam-container");
+
+  // Stop and remove any existing stream/canvas
+  if (webcam && webcam._videoEl) {
+    webcam._videoEl.srcObject.getTracks().forEach((t) => t.stop());
+    webcam._videoEl.remove();
+  }
+  container.innerHTML = "";
+
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: currentFacingMode },
+    audio: false,
+  });
+
+  const video = document.createElement("video");
+  video.srcObject = stream;
+  video.setAttribute("playsinline", ""); // Required for iOS — prevents fullscreen takeover
+  video.muted = true;
+  await video.play();
+
+  const canvas = document.createElement("canvas");
+  canvas.width = 400;
+  canvas.height = 400;
+  container.appendChild(canvas);
+
+  // Proxy object that matches the tmImage.Webcam interface used elsewhere
+  webcam = {
+    _videoEl: video,
+    canvas: canvas,
+    update() {
+      canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+    },
+  };
+}
+
+/**
+ * Toggles between front and rear cameras and restarts the webcam stream.
+ * Wired to the Flip Camera button.
+ */
+async function flipCamera() {
+  currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
+  await startWebcam();
+}
+
+// Wire up the Flip Camera button once the DOM is ready
+document.addEventListener("DOMContentLoaded", () => {
+  const flipBtn = document.getElementById("FlipCamBtn");
+  if (flipBtn) flipBtn.addEventListener("click", flipCamera);
+});
 
 // ========== Animation Loop ==========
 
