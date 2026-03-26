@@ -308,14 +308,16 @@ StartCamBtn.addEventListener("click", async () => {
     console.log("Camera initialized successfully");
 
     StartCamBtn.style.display = "none";
-    PDFbtn.style.display = "block";
-    backBtn.style.display = "block";
     textElement.style.display = "block";
     patientFormContainer.style.display = "none";
 
-    // Show Take Photo button only for webcam mode (not uploaded image)
     if (!window.uploadedImageData) {
+      // Webcam mode: show Take Photo button, hold off on PDF/back until a photo is taken
       takePhotoBtn.style.display = "inline-block";
+    } else {
+      // Uploaded image mode: prediction already ran in init(), show all buttons now
+      PDFbtn.style.display = "block";
+      backBtn.style.display = "block";
     }
   } catch (error) {
     console.error("Failed to start camera:", error);
