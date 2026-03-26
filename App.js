@@ -260,7 +260,9 @@ StartCamBtn.addEventListener("click", async () => {
 takePhotoBtn.addEventListener("click", async () => {
   // Open the PDF tab NOW, synchronously, while iOS still considers this a user gesture.
   // Any window.open() called after an await is blocked by iOS Safari's popup rules.
-  const pdfWindow = window.open("", "_blank");
+  // On desktop, skip the pre-open — the download path doesn't need it.
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  const pdfWindow = isMobile ? window.open("", "_blank") : null;
 
   // Freeze the current frame before anything else so the PDF always matches the scan
   if (webcam?.canvas) {
@@ -343,9 +345,11 @@ async function exportToPDFWithPatient(pdfWindow) {
     return;
   }
 
-  // For the uploaded-image path the PDF button onclick calls this directly as a
-  // user gesture, so we can open the tab here before any awaits.
-  const win = pdfWindow ?? window.open("", "_blank");
+  // iOS Safari blocks window.open() after an await, so pre-open the tab synchronously.
+  // On desktop, window.open() after an await is fine, so skip the pre-open there —
+  // navigating a blank window to a blob URL is less reliable than opening the URL directly.
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  const win = pdfWindow ?? (isMobile ? window.open("", "_blank") : null);
 
   try {
     const { filename, pdfBlob } = await exportToPDF(win);

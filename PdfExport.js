@@ -97,23 +97,24 @@ async function exportToPDF(pdfWindow) {
   const filename = `PG-Scan_${timestamp()}.pdf`;
   const pdfBlob = pdf.output("blob");
 
-  // Navigate the pre-opened window to the blob URL.
-  // The window was opened synchronously during the user gesture (before any awaits)
-  // so iOS Safari allows it. Calling window.open() after an await gets blocked.
   const url = URL.createObjectURL(pdfBlob);
+
   if (pdfWindow && !pdfWindow.closed) {
+    // Mobile (iOS Safari): navigate the pre-opened window to the blob URL.
+    // The window was opened synchronously before any awaits so iOS allows it.
     pdfWindow.location.href = url;
   } else {
-    // Fallback for desktop or if the window was blocked
+    // Desktop: trigger a direct download.
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
-    a.target = "_blank";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
   }
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+  // Keep the blob URL alive long enough for the browser to finish loading it.
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 
   return { filename, pdfBlob };
 }
@@ -143,7 +144,7 @@ const timestamp = () => {
  * Tries uploaded image first, then canvas, then video element
  * @returns {string|null} Data URL of snapshot, or null if unavailable
  */
-async function getSnapshotDataURL() {
+function getSnapshotDataURL() {
   // Use the frozen frame captured at scan time so the PDF always matches the analyzed image
   if (window.scannedFrameData) {
     return window.scannedFrameData;
