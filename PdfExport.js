@@ -14,7 +14,7 @@
  * Generates a PDF report with patient scan results
  * @returns {Object} {filename, pdfBlob} - Generated filename and blob for database storage
  */
-async function exportToPDF() {
+async function exportToPDF(pdfWindow) {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
   const w = pdf.internal.pageSize.getWidth();
@@ -97,18 +97,22 @@ async function exportToPDF() {
   const filename = `PG-Scan_${timestamp()}.pdf`;
   const pdfBlob = pdf.output("blob");
 
-  // Use a manual anchor click instead of pdf.save() — on mobile Safari, pdf.save()
-  // navigates the current tab to the blob URL, killing the app session.
-  // target="_blank" ensures iOS opens the PDF in a new tab when the download
-  // attribute is not supported.
+  // Navigate the pre-opened window to the blob URL.
+  // The window was opened synchronously during the user gesture (before any awaits)
+  // so iOS Safari allows it. Calling window.open() after an await gets blocked.
   const url = URL.createObjectURL(pdfBlob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.target = "_blank";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  if (pdfWindow && !pdfWindow.closed) {
+    pdfWindow.location.href = url;
+  } else {
+    // Fallback for desktop or if the window was blocked
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 
   return { filename, pdfBlob };

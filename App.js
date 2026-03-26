@@ -258,13 +258,17 @@ StartCamBtn.addEventListener("click", async () => {
 });
 
 takePhotoBtn.addEventListener("click", async () => {
+  // Open the PDF tab NOW, synchronously, while iOS still considers this a user gesture.
+  // Any window.open() called after an await is blocked by iOS Safari's popup rules.
+  const pdfWindow = window.open("", "_blank");
+
   // Freeze the current frame before anything else so the PDF always matches the scan
   if (webcam?.canvas) {
     window.scannedFrameData = webcam.canvas.toDataURL("image/jpeg", 0.92);
   }
 
   await captureAndPredict();
-  await exportToPDFWithPatient();
+  await exportToPDFWithPatient(pdfWindow);
 
   // Freeze the preview — stop the loop and release the camera stream
   isRunning = false;
@@ -328,7 +332,7 @@ backBtn.addEventListener("click", () => {
 /**
  * Exports the current scan to PDF and saves the patient record to the database.
  */
-async function exportToPDFWithPatient() {
+async function exportToPDFWithPatient(pdfWindow) {
   if (!currentPatientData) {
     alert("Patient data not found. Please restart the application.");
     return;
@@ -339,8 +343,12 @@ async function exportToPDFWithPatient() {
     return;
   }
 
+  // For the uploaded-image path the PDF button onclick calls this directly as a
+  // user gesture, so we can open the tab here before any awaits.
+  const win = pdfWindow ?? window.open("", "_blank");
+
   try {
-    const { filename, pdfBlob } = await exportToPDF();
+    const { filename, pdfBlob } = await exportToPDF(win);
     currentPatientData.pdfFilename = filename;
     currentPatientData.pdfBlob = pdfBlob;
 
