@@ -97,16 +97,28 @@ async function exportToPDF() {
   const filename = `PG-Scan_${timestamp()}.pdf`;
   const pdfBlob = pdf.output("blob");
 
-  const url = URL.createObjectURL(pdfBlob);
+  // Use the Web Share API on mobile (iOS/Android) — it triggers the native share/save sheet.
+  // iOS Safari ignores the `download` attribute on blob URLs, so this is the only
+  // reliable way to let the user save the file without navigating away.
+  const pdfFile = new File([pdfBlob], filename, { type: "application/pdf" });
+  if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+    try {
+      await navigator.share({ files: [pdfFile], title: "PG Scanner Report" });
+    } catch (e) {
+      if (e.name !== "AbortError") console.warn("Share failed:", e);
+      // AbortError means user dismissed the sheet — that's fine, do nothing.
+    }
+    return { filename, pdfBlob };
+  }
 
+  // Desktop fallback: anchor download.
+  const url = URL.createObjectURL(pdfBlob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-
-  // Keep the blob URL alive long enough for the browser to finish loading it.
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 
   return { filename, pdfBlob };
