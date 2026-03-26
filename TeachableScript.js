@@ -28,7 +28,8 @@ let model, webcam, labelContainer, maxPredictions;
 let lastUpdate = 0; // Timestamp of last prediction
 let useUploadedImage = false; // Flag to use uploaded image instead of webcam
 let uploadedImageElement = null; // Image element for uploaded image
-let isRunning = false; // add this near your other global state variables
+let isRunning = false;
+let currentFacingMode = "user"; // Start with front camera
 
 // ========== Initialization ==========
 
@@ -70,17 +71,13 @@ async function init() {
       // Run prediction once for uploaded image
       await predict();
     } else {
-      // Use webcam mode (original behavior)
+      // Use webcam mode
       useUploadedImage = false;
-      webcam = new tmImage.Webcam();
-      await webcam.setup(); // Request camera permissions
-      await webcam.play();
+      await startWebcam();
 
       // Start prediction loop
       window.requestAnimationFrame(loop);
 
-      // Add webcam canvas to DOM
-      document.getElementById("webcam-container").appendChild(webcam.canvas);
       labelContainer = document.getElementById("label-container");
 
       // Show the flip button now that the camera is running
