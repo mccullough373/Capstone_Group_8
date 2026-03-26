@@ -1,16 +1,5 @@
-/**
- * App.js - PG Scanner Application Logic
- *
- * Handles:
- * - Encryption setup and password verification
- * - Patient form validation and state
- * - Camera initialization and teardown
- * - Patient record management (CRUD)
- * - Modal interactions
- * - Database integration
- */
+// ========== DOM References ==========
 
-// ========== DOM Element References ==========
 const StartCamBtn = document.getElementById("StartCamBtn");
 const PDFbtn = document.getElementById("PDFbtn");
 const backBtn = document.getElementById("back-btn");
@@ -25,44 +14,36 @@ const searchBtn = document.getElementById("search-btn");
 const showAllBtn = document.getElementById("show-all-btn");
 const recordsList = document.getElementById("records-list");
 
-// Encryption modal elements
 const encryptionModal = document.getElementById("encryption-model");
 const setupEncryptionBtn = document.getElementById("setup-encryption-btn");
 const masterPasswordInput = document.getElementById("master-password");
 const confirmPasswordInput = document.getElementById("confirm-password");
 const encryptionError = document.getElementById("encryption-error");
 
-// Image upload elements
 const patientImageInput = document.getElementById("patient-image");
 const imagePreviewContainer = document.getElementById("image-preview-container");
 const imagePreview = document.getElementById("image-preview");
 const removeImageBtn = document.getElementById("remove-image-btn");
 
-// ========== Application State ==========
+// ========== State ==========
+
 let currentPatientData = null;
 let uploadedImageData = null;
 
-// ========== Encryption & Database Initialization ==========
+// ========== Encryption & Initialization ==========
 
 window.addEventListener("load", async () => {
-  const hasEncryption = localStorage.getItem("encryption_salt");
-
-  if (!hasEncryption) {
+  if (!localStorage.getItem("encryption_salt")) {
     encryptionModal.style.display = "block";
   } else {
     await promptForPassword();
   }
 });
 
-/**
- * Prompts the user for their master password and verifies it against
- * the stored verification token. Allows up to 3 attempts.
- */
 async function promptForPassword() {
-  let attempts = 0;
   const maxAttempts = 3;
 
-  while (attempts < maxAttempts) {
+  for (let attempts = 0; attempts < maxAttempts; attempts++) {
     const password = prompt(
       attempts === 0
         ? "Enter master password to unlock application:"
@@ -95,10 +76,9 @@ async function promptForPassword() {
       }
     } catch (error) {
       console.error("Password verification failed:", error);
-      attempts++;
       encryption.key = null;
 
-      if (attempts >= maxAttempts) {
+      if (attempts + 1 >= maxAttempts) {
         alert("Too many failed attempts.\n\nPlease refresh the page and try again.");
         location.reload();
         return;
@@ -107,10 +87,6 @@ async function promptForPassword() {
   }
 }
 
-/**
- * Handles first-time encryption setup. Creates and stores a verification
- * token so the password can be checked on future logins.
- */
 setupEncryptionBtn.addEventListener("click", async () => {
   const password = masterPasswordInput.value;
   const confirm = confirmPasswordInput.value;
@@ -137,7 +113,6 @@ setupEncryptionBtn.addEventListener("click", async () => {
     localStorage.setItem("encryption_verification", encryptedToken);
 
     await patientDB.init();
-
     encryptionModal.style.display = "none";
     alert("Encryption setup successful!\n\nIMPORTANT: Remember your password - it cannot be recovered!");
   } catch (error) {
@@ -147,7 +122,7 @@ setupEncryptionBtn.addEventListener("click", async () => {
   }
 });
 
-// ========== Image Upload Handling ==========
+// ========== Image Upload ==========
 
 patientImageInput.addEventListener("change", (event) => {
   const file = event.target.files[0];
@@ -187,31 +162,18 @@ removeImageBtn.addEventListener("click", () => {
 
 // ========== Form Validation ==========
 
-/**
- * Validates required patient form fields before starting a scan.
- * @returns {boolean} True if all fields are valid
- */
 function validatePatientForm() {
   const name = document.getElementById("patient-name").value.trim();
   const age = document.getElementById("patient-age").value;
   const sex = document.getElementById("patient-sex").value;
 
-  if (!name) {
-    alert("Please enter patient name.");
-    return false;
-  }
-  if (!age || age < 0 || age > 150) {
-    alert("Please enter a valid age (0-150).");
-    return false;
-  }
-  if (!sex) {
-    alert("Please select patient sex.");
-    return false;
-  }
+  if (!name) { alert("Please enter patient name."); return false; }
+  if (!age || age < 0 || age > 150) { alert("Please enter a valid age (0-150)."); return false; }
+  if (!sex) { alert("Please select patient sex."); return false; }
   return true;
 }
 
-// ========== Camera Initialization ==========
+// ========== Camera ==========
 
 StartCamBtn.addEventListener("click", async () => {
   if (!encryption.isInitialized()) {
@@ -242,10 +204,8 @@ StartCamBtn.addEventListener("click", async () => {
     patientFormContainer.style.display = "none";
 
     if (!window.uploadedImageData) {
-      // Webcam mode: hold PDF/back until the user takes a photo
       takePhotoBtn.style.display = "inline-block";
     } else {
-      // Uploaded image mode: prediction already ran, show all buttons
       PDFbtn.style.display = "block";
       backBtn.style.display = "block";
     }
@@ -258,17 +218,13 @@ StartCamBtn.addEventListener("click", async () => {
 });
 
 takePhotoBtn.addEventListener("click", async () => {
-  const pdfWindow = null;
-
-  // Freeze the current frame before anything else so the PDF always matches the scan
   if (webcam?.canvas) {
     window.scannedFrameData = webcam.canvas.toDataURL("image/jpeg", 0.92);
   }
 
   await captureAndPredict();
-  await exportToPDFWithPatient(pdfWindow);
+  await exportToPDFWithPatient();
 
-  // Freeze the preview — stop the loop and release the camera stream
   isRunning = false;
   if (webcam?._videoEl?.srcObject) {
     webcam._videoEl.srcObject.getTracks().forEach((t) => t.stop());
@@ -279,15 +235,11 @@ takePhotoBtn.addEventListener("click", async () => {
   backBtn.style.display = "block";
 });
 
-// ========== Back Button ==========
-
 backBtn.addEventListener("click", () => {
   isRunning = false;
 
-  // Stop the active camera stream
-  if (webcam && webcam._videoEl) {
-    const stream = webcam._videoEl.srcObject;
-    if (stream) stream.getTracks().forEach((t) => t.stop());
+  if (webcam?._videoEl?.srcObject) {
+    webcam._videoEl.srcObject.getTracks().forEach((t) => t.stop());
   }
 
   // Brief delay lets any in-flight predict() call finish before clearing the UI
@@ -298,13 +250,11 @@ backBtn.addEventListener("click", () => {
 
   document.getElementById("webcam-container").innerHTML = "";
 
-  // Reset state
   currentPatientData = null;
   uploadedImageData = null;
   window.uploadedImageData = null;
   window.scannedFrameData = null;
 
-  // Reset form
   document.getElementById("patient-name").value = "";
   document.getElementById("patient-age").value = "";
   document.getElementById("patient-sex").value = "";
@@ -313,7 +263,6 @@ backBtn.addEventListener("click", () => {
   imagePreview.src = "";
   imagePreviewContainer.style.display = "none";
 
-  // Reset UI
   patientFormContainer.style.display = "block";
   StartCamBtn.style.display = "block";
   StartCamBtn.disabled = false;
@@ -327,9 +276,6 @@ backBtn.addEventListener("click", () => {
 
 // ========== PDF Export ==========
 
-/**
- * Exports the current scan to PDF and saves the patient record to the database.
- */
 async function exportToPDFWithPatient() {
   if (!currentPatientData) {
     alert("Patient data not found. Please restart the application.");
@@ -342,7 +288,7 @@ async function exportToPDFWithPatient() {
   }
 
   try {
-    // @ts-ignore — exportToPDF is async; TS can't infer its return type across JS files
+    // @ts-ignore — exportToPDF is async; TS can't infer its return type across plain JS files
     const { filename, pdfBlob } = await exportToPDF();
     currentPatientData.pdfFilename = filename;
     currentPatientData.pdfBlob = pdfBlob;
@@ -371,29 +317,25 @@ closeModal.addEventListener("click", () => {
 });
 
 window.addEventListener("click", (event) => {
-  if (event.target === recordsModal) {
-    recordsModal.style.display = "none";
-  }
+  if (event.target === recordsModal) recordsModal.style.display = "none";
 });
 
 // ========== Search ==========
 
 searchBtn.addEventListener("click", async () => {
   const searchTerm = searchInput.value.trim();
-  if (searchTerm) {
-    try {
-      const results = await patientDB.searchPatientsByName(searchTerm);
-      displayRecords(results);
-    } catch (error) {
-      console.error("Error searching records:", error);
-      alert("Failed to search records. Please try again.");
-    }
+  if (!searchTerm) return;
+
+  try {
+    const results = await patientDB.searchPatientsByName(searchTerm);
+    displayRecords(results);
+  } catch (error) {
+    console.error("Error searching records:", error);
+    alert("Failed to search records. Please try again.");
   }
 });
 
-showAllBtn.addEventListener("click", () => {
-  loadAllRecords();
-});
+showAllBtn.addEventListener("click", () => loadAllRecords());
 
 searchInput.addEventListener("keypress", (e) => {
   if (e.key === "Enter") searchBtn.click();
@@ -446,24 +388,24 @@ function displayRecords(patients) {
 async function viewPatientDetails(id) {
   try {
     const patient = await patientDB.getPatientById(id);
-    if (patient) {
-      const pdfInfo = patient.pdfBlob
-        ? `PDF: ${patient.pdfFilename} (Available for download)`
-        : patient.pdfFilename
-          ? `PDF: ${patient.pdfFilename} (File not stored)`
-          : "PDF: Not available";
+    if (!patient) return;
 
-      alert(
-        `Patient Details:\n\n` +
-        `Name: ${patient.name}\n` +
-        `Age: ${patient.age}\n` +
-        `Sex: ${patient.sex}\n` +
-        `Notes: ${patient.notes || "None"}\n` +
-        `${pdfInfo}\n` +
-        `Created: ${new Date(patient.createdAt).toLocaleString()}\n\n` +
-        `This data is encrypted in storage.`
-      );
-    }
+    const pdfInfo = patient.pdfBlob
+      ? `PDF: ${patient.pdfFilename} (Available for download)`
+      : patient.pdfFilename
+        ? `PDF: ${patient.pdfFilename} (File not stored)`
+        : "PDF: Not available";
+
+    alert(
+      `Patient Details:\n\n` +
+      `Name: ${patient.name}\n` +
+      `Age: ${patient.age}\n` +
+      `Sex: ${patient.sex}\n` +
+      `Notes: ${patient.notes || "None"}\n` +
+      `${pdfInfo}\n` +
+      `Created: ${new Date(patient.createdAt).toLocaleString()}\n\n` +
+      `This data is encrypted in storage.`
+    );
   } catch (error) {
     console.error("Error viewing patient:", error);
     alert("Failed to load patient details. Decryption may have failed.");
@@ -491,7 +433,9 @@ async function downloadPatientPDF(id) {
     const filename = patient.pdfFilename || `Patient_${patient.id}_${patient.name.replace(/\s+/g, "_")}_Report.pdf`;
     const pdfFile = new File([blob], filename, { type: "application/pdf" });
 
-    if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+    // Use the native share sheet on mobile — iOS Safari ignores <a download> on blob URLs
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
       try {
         await navigator.share({ files: [pdfFile], title: filename });
       } catch (e) {
@@ -518,7 +462,6 @@ async function deletePatientRecord(id) {
   if (confirm("Are you sure you want to delete this patient record?\n\nThis action cannot be undone.")) {
     try {
       await patientDB.deletePatient(id);
-      alert("Record deleted successfully!");
       loadAllRecords();
     } catch (error) {
       console.error("Error deleting patient:", error);
@@ -527,7 +470,8 @@ async function deletePatientRecord(id) {
   }
 }
 
-// ========== Global Function Exports ==========
+// ========== Global Exports ==========
+
 window.viewPatientDetails = viewPatientDetails;
 window.deletePatientRecord = deletePatientRecord;
 window.exportToPDFWithPatient = exportToPDFWithPatient;

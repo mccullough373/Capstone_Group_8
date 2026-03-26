@@ -1,35 +1,18 @@
-/**
- * TeachableScript.js - ML Model Integration
- *
- * Handles:
- * - Loading TensorFlow.js model from Teachable Machine
- * - Webcam setup and frame capture
- * - Button-triggered image classification
- * - Confidence score and lighting display
- *
- * API Documentation:
- * https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
- */
-
 // ========== Configuration ==========
-const CONFIG = {
-  MODEL_URL: "./ModelFiles/",
-};
 
-// ========== Global State ==========
+const CONFIG = { MODEL_URL: "./ModelFiles/" };
+
+// ========== State ==========
+
 let model, webcam, labelContainer, maxPredictions;
 let lastLightingCheck = 0;
 let useUploadedImage = false;
 let uploadedImageElement = null;
 let isRunning = false;
-let currentFacingMode = "user"; // Start with front camera
+let currentFacingMode = "user";
 
 // ========== Initialization ==========
 
-/**
- * Loads the ML model and starts either webcam or uploaded-image mode.
- * @throws {Error} If model loading or camera access fails
- */
 async function init() {
   try {
     model = await tmImage.load(
@@ -40,7 +23,6 @@ async function init() {
     isRunning = true;
 
     if (window.uploadedImageData) {
-      // Uploaded image mode: load the image and run one prediction
       useUploadedImage = true;
       uploadedImageElement = new Image();
       uploadedImageElement.src = window.uploadedImageData;
@@ -54,7 +36,6 @@ async function init() {
       labelContainer = document.getElementById("label-container");
       await predict();
     } else {
-      // Webcam mode: start live preview and lighting checks
       useUploadedImage = false;
       await startWebcam();
       window.requestAnimationFrame(loop);
@@ -79,29 +60,19 @@ async function init() {
   }
 }
 
-// ========== Camera Setup ==========
+// ========== Camera ==========
 
-/**
- * Starts the webcam using getUserMedia with the current facing mode.
- * Builds a proxy object with canvas + update() to match the rest of the code.
- * getUserMedia is used directly (instead of tmImage.Webcam) so we can control
- * facingMode — the Teachable Machine library hardcodes it to "user".
- */
 async function startWebcam() {
   const container = document.getElementById("webcam-container");
 
-  // Stop and remove any existing stream
-  if (webcam && webcam._videoEl) {
-    const oldStream = webcam._videoEl.srcObject;
-    if (oldStream) oldStream.getTracks().forEach((t) => t.stop());
+  if (webcam?._videoEl) {
+    webcam._videoEl.srcObject?.getTracks().forEach((t) => t.stop());
     webcam._videoEl.remove();
   }
   container.innerHTML = "";
 
-  // iOS Safari requires { exact: "environment" } to reliably switch to the back
-  // camera — a plain "environment" string is often ignored on iOS.
-  const facingConstraint =
-    currentFacingMode === "environment" ? { exact: "environment" } : "user";
+  // iOS Safari requires { exact: "environment" } to reliably switch to the back camera
+  const facingConstraint = currentFacingMode === "environment" ? { exact: "environment" } : "user";
 
   const stream = await navigator.mediaDevices.getUserMedia({
     video: { facingMode: facingConstraint },
@@ -114,7 +85,6 @@ async function startWebcam() {
   video.muted = true;
   await video.play();
 
-  // Wait for the browser to know the stream's real dimensions
   await new Promise((resolve) => {
     if (video.readyState >= 1) resolve();
     else video.addEventListener("loadedmetadata", resolve, { once: true });
@@ -123,39 +93,30 @@ async function startWebcam() {
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth || 640;
   canvas.height = video.videoHeight || 480;
-  // Mirror front camera so it looks natural; back camera should not be mirrored
-  canvas.style.transform = currentFacingMode === "user" ? "scaleX(-1)" : "";
+  canvas.style.transform = currentFacingMode === "user" ? "scaleX(-1)" : ""; // Mirror front camera
   container.appendChild(canvas);
 
   webcam = {
     _videoEl: video,
-    canvas: canvas,
+    canvas,
     update() {
       canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
     },
   };
 }
 
-/**
- * Toggles between front and rear cameras and restarts the webcam stream.
- */
 async function flipCamera() {
   currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
   await startWebcam();
 }
 
-// Wire up the Flip Camera button once the DOM is ready
 document.addEventListener("DOMContentLoaded", () => {
   const flipBtn = document.getElementById("FlipCamBtn");
   if (flipBtn) flipBtn.addEventListener("click", flipCamera);
 });
 
-// ========== Animation Loop ==========
+// ========== Loop ==========
 
-/**
- * Keeps the webcam preview updated and refreshes the lighting indicator.
- * Prediction is NOT triggered here — only on Take Photo button press.
- */
 function loop() {
   if (!isRunning) return;
 
@@ -175,30 +136,13 @@ function loop() {
 
 // ========== Prediction ==========
 
-/**
- * Captures the current webcam frame and runs a single prediction.
- * Disables the button while analyzing to prevent double-taps.
- */
 async function captureAndPredict() {
   const btn = document.getElementById("TakePhotoBtn");
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = "Scanning...";
-  }
+  if (btn) { btn.disabled = true; btn.textContent = "Scanning..."; }
   await predict();
-  if (btn) {
-    btn.disabled = false;
-    btn.textContent = "Scan";
-  }
+  if (btn) { btn.disabled = false; btn.textContent = "Scan"; }
 }
 
-/**
- * Runs ML prediction on the current webcam frame or uploaded image.
- * Displays a color-coded confidence result:
- *   Green  (≥70%) — high confidence, likely PG
- *   Yellow (40–69%) — uncertain
- *   Red    (<40%)  — low confidence, likely not PG
- */
 async function predict() {
   let prediction;
 
@@ -211,7 +155,6 @@ async function predict() {
     return;
   }
 
-  // Find the PG class (assumes class name contains "pg")
   let pgPrediction = null;
   for (let i = 0; i < maxPredictions; i++) {
     if (prediction[i].className.toLowerCase().includes("pg")) {
@@ -228,23 +171,19 @@ async function predict() {
     resultDiv.innerHTML = `PG Detected: ${prob.toFixed(1)}%`;
 
     if (prob >= 70) {
-      resultDiv.style.background = "rgba(34, 197, 94, 0.9)";  // Green
+      resultDiv.style.background = "rgba(34, 197, 94, 0.9)";
     } else if (prob >= 40) {
-      resultDiv.style.background = "rgba(234, 179, 8, 0.9)";  // Yellow
+      resultDiv.style.background = "rgba(234, 179, 8, 0.9)";
     } else {
-      resultDiv.style.background = "rgba(239, 68, 68, 0.9)";  // Red
+      resultDiv.style.background = "rgba(239, 68, 68, 0.9)";
     }
 
     labelContainer.appendChild(resultDiv);
   }
 }
 
-// ========== Lighting Check ==========
+// ========== Lighting ==========
 
-/**
- * Samples the webcam canvas to estimate scene brightness and updates
- * the lighting indicator with Good / Too Dark / Too Bright feedback.
- */
 function checkLighting() {
   if (!webcam?.canvas) return;
 
@@ -256,7 +195,7 @@ function checkLighting() {
   for (let i = 0; i < data.length; i += 4) {
     total += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
   }
-  const brightness = total / (data.length / 4); // 0–255
+  const brightness = total / (data.length / 4);
 
   const lightingDiv = document.getElementById("lighting-container");
   if (!lightingDiv) return;
