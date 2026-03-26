@@ -96,7 +96,20 @@ async function exportToPDF() {
   // ========== Save PDF ==========
   const filename = `PG-Scan_${timestamp()}.pdf`;
   const pdfBlob = pdf.output("blob");
-  pdf.save(filename);
+
+  // Use a manual anchor click instead of pdf.save() — on mobile Safari, pdf.save()
+  // navigates the current tab to the blob URL, killing the app session.
+  // target="_blank" ensures iOS opens the PDF in a new tab when the download
+  // attribute is not supported.
+  const url = URL.createObjectURL(pdfBlob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.target = "_blank";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 
   return { filename, pdfBlob };
 }
