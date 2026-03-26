@@ -99,20 +99,12 @@ async function exportToPDF() {
 
   const url = URL.createObjectURL(pdfBlob);
 
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  if (isMobile) {
-    // Mobile: navigate the current tab to the blob URL so the PDF loads immediately.
-    // The user can tap Back to return to the scanner.
-    window.location.href = url;
-  } else {
-    // Desktop: trigger a direct download.
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  }
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 
   // Keep the blob URL alive long enough for the browser to finish loading it.
   setTimeout(() => URL.revokeObjectURL(url), 60000);
