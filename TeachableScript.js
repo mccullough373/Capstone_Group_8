@@ -1,55 +1,28 @@
-/**
- * TeachableScript.js - ML Model Integration
- *
- * Handles:
- * - Loading TensorFlow.js model from Teachable Machine
- * - Webcam setup and frame capture
- * - Real-time image classification
- * - Confidence score display with color coding
- *
- * API Documentation:
- * https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
- */
-
 // ========== Configuration ==========
-const CONFIG = {
-  // Prediction update interval (milliseconds)
-  UPDATE_INTERVAL: 1250,
 
-  // path to model files
-  MODEL_URL: "./",
+const CONFIG = { MODEL_URL: "./ModelFiles/" };
 
-  // Minimum confidence threshold to display (percentage)
-  CONFIDENCE_THRESHOLD: 5,
-};
+// ========== State ==========
 
-// ========== Global State ==========
 let model, webcam, labelContainer, maxPredictions;
-let lastUpdate = 0; // Timestamp of last prediction
-let useUploadedImage = false; // Flag to use uploaded image instead of webcam
-let uploadedImageElement = null; // Image element for uploaded image
-let isRunning = false; // add this near your other global state variables
+let lastLightingCheck = 0;
+let useUploadedImage = false;
+let uploadedImageElement = null;
+let isRunning = false;
+let currentFacingMode = "user";
 
 // ========== Initialization ==========
 
-/**
- * Initializes the ML model and webcam
- * Loads model from external URL and sets up webcam feed
- * @throws {Error} If model loading or camera access fails
- */
 async function init() {
   try {
-    const modelURL = CONFIG.MODEL_URL + "model.json";
-    const metadataURL = CONFIG.MODEL_URL + "metadata.json";
-
-    // Load pre-trained model and metadata
-    model = await tmImage.load(modelURL, metadataURL);
+    model = await tmImage.load(
+      CONFIG.MODEL_URL + "model.json",
+      CONFIG.MODEL_URL + "metadata.json"
+    );
     maxPredictions = model.getTotalClasses();
     isRunning = true;
 
-    // Check if user uploaded an image (from App.js global variable)
     if (window.uploadedImageData) {
-      // Use uploaded image mode
       useUploadedImage = true;
       uploadedImageElement = new Image();
       uploadedImageElement.src = window.uploadedImageData;
@@ -59,38 +32,25 @@ async function init() {
         uploadedImageElement.onerror = reject;
       });
 
-      // Display uploaded image in webcam container
-      // Styles are handled by CSS for consistent sizing
-      document
-        .getElementById("webcam-container")
-        .appendChild(uploadedImageElement);
-
+      document.getElementById("webcam-container").appendChild(uploadedImageElement);
       labelContainer = document.getElementById("label-container");
-
-      // Run prediction once for uploaded image
       await predict();
     } else {
-      // Use webcam mode (original behavior)
       useUploadedImage = false;
-      const flip = true;
-      webcam = new tmImage.Webcam();
-      await webcam.setup(); // Request camera permissions
-      await webcam.play();
-
-      // Start prediction loop
+      await startWebcam();
       window.requestAnimationFrame(loop);
 
       // Add webcam canvas to DOM
       document.getElementById("webcam-container").appendChild(webcam.canvas);
       labelContainer = document.getElementById("label-container");
+
+      const flipBtn = document.getElementById("FlipCamBtn");
+      if (flipBtn) flipBtn.style.display = "inline-block";
     }
   } catch (error) {
     console.error("Initialization error:", error);
-    alert(
-      "Failed to initialize. Please check camera permissions and internet connection.",
-    );
+    alert("Failed to initialize. Please check camera permissions and internet connection.");
 
-    // Re-enable start button on failure
     const startBtn = document.getElementById("StartCamBtn");
     if (startBtn) {
       startBtn.style.display = "inline-block";
@@ -102,43 +62,92 @@ async function init() {
   }
 }
 
-// ========== Animation Loop ==========
+// ========== Camera ==========
 
-/**
- * Main animation loop for webcam updates and periodic predictions
- * Runs continuously via requestAnimationFrame
- * Only runs when using webcam mode
- */
-async function loop() {
-  if (!isRunning) return; // check FIRST before anything else
+async function startWebcam() {
+  const container = document.getElementById("webcam-container");
+
+  if (webcam?._videoEl) {
+    webcam._videoEl.srcObject?.getTracks().forEach((t) => t.stop());
+    webcam._videoEl.remove();
+  }
+  container.innerHTML = "";
+
+  // iOS Safari requires { exact: "environment" } to reliably switch to the back camera
+  const facingConstraint = currentFacingMode === "environment" ? { exact: "environment" } : "user";
+
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: facingConstraint },
+    audio: false,
+  });
+
+  const video = document.createElement("video");
+  video.srcObject = stream;
+  video.setAttribute("playsinline", ""); // Required for iOS — prevents fullscreen takeover
+  video.muted = true;
+  await video.play();
+
+  await new Promise((resolve) => {
+    if (video.readyState >= 1) resolve();
+    else video.addEventListener("loadedmetadata", resolve, { once: true });
+  });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth || 640;
+  canvas.height = video.videoHeight || 480;
+  canvas.style.transform = currentFacingMode === "user" ? "scaleX(-1)" : ""; // Mirror front camera
+  container.appendChild(canvas);
+
+  webcam = {
+    _videoEl: video,
+    canvas,
+    update() {
+      canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+    },
+  };
+}
+
+async function flipCamera() {
+  currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
+  await startWebcam();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const flipBtn = document.getElementById("FlipCamBtn");
+  if (flipBtn) flipBtn.addEventListener("click", flipCamera);
+});
+
+// ========== Loop ==========
+
+function loop() {
+  if (!isRunning) return;
 
   if (!useUploadedImage && webcam) {
     webcam.update();
-    window.requestAnimationFrame(loop);
 
+    // Update lighting ~2x per second to avoid hammering getImageData every frame
     const now = Date.now();
-    if (now - lastUpdate >= CONFIG.UPDATE_INTERVAL) {
-      await predict();
-      lastUpdate = now;
+    if (now - lastLightingCheck >= 500) {
+      checkLighting();
+      lastLightingCheck = now;
     }
+
+    window.requestAnimationFrame(loop);
   }
 }
 
 // ========== Prediction ==========
 
-/**
- * Runs ML prediction on current webcam frame or uploaded image
- * Finds PG classification and displays color-coded confidence level
- *
- * Color Coding:
- * - Green (≥70%): High confidence - likely PG
- * - Yellow (40-69%): Medium confidence - uncertain
- * - Red (<40%): Low confidence - likely not PG
- */
+async function captureAndPredict() {
+  const btn = document.getElementById("TakePhotoBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "Scanning..."; }
+  await predict();
+  if (btn) { btn.disabled = false; btn.textContent = "Scan"; }
+}
+
 async function predict() {
   let prediction;
 
-  // Run model inference on either uploaded image or webcam
   if (useUploadedImage && uploadedImageElement) {
     prediction = await model.predict(uploadedImageElement);
   } else if (webcam?.canvas) {
@@ -148,7 +157,6 @@ async function predict() {
     return;
   }
 
-  // Find PG prediction (assumes class name contains "pg")
   let pgPrediction = null;
   for (let i = 0; i < maxPredictions; i++) {
     if (prediction[i].className.toLowerCase().includes("pg")) {
@@ -158,43 +166,40 @@ async function predict() {
     }
   }
 
-  // Clear previous results
   labelContainer.innerHTML = "";
 
   if (pgPrediction) {
     const prob = pgPrediction.probability * 100;
     const resultDiv = document.createElement("div");
-
-    // Set display text
     resultDiv.innerHTML = `PG Detected: ${prob.toFixed(1)}%`;
 
-    // Apply color coding based on confidence level
     if (prob >= 70) {
-      resultDiv.style.background = "rgba(34, 197, 94, 0.9)"; // Green
+      resultDiv.style.background = "rgba(34, 197, 94, 0.9)";
     } else if (prob >= 40) {
-      resultDiv.style.background = "rgba(234, 179, 8, 0.9)"; // Yellow
+      resultDiv.style.background = "rgba(234, 179, 8, 0.9)";
     } else {
-      resultDiv.style.background = "rgba(239, 68, 68, 0.9)"; // Red
+      resultDiv.style.background = "rgba(239, 68, 68, 0.9)";
     }
 
     labelContainer.appendChild(resultDiv);
   }
 }
 
+// ========== Lighting ==========
+
 function checkLighting() {
-  const canvas = webcam.canvas;
-  if (!canvas) return;
+  if (!webcam?.canvas) return;
 
-  const ctx = canvas.getContext("2d");
-  const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const ctx = webcam.canvas.getContext("2d");
+  const { data } = ctx.getImageData(0, 0, webcam.canvas.width, webcam.canvas.height);
 
-  // Calculate average brightness across all pixels
+  // Standard luminance formula averaged across all pixels
   let total = 0;
   for (let i = 0; i < data.length; i += 4) {
     // Standard luminance formula
     total += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
   }
-  const brightness = total / (data.length / 4); // 0–255
+  const brightness = total / (data.length / 4);
 
   const lightingDiv = document.getElementById("lighting-container");
   if (!lightingDiv) return;
@@ -202,23 +207,23 @@ function checkLighting() {
   let label, bg;
   if (brightness >= 80 && brightness <= 200) {
     label = "Lighting: Good";
-    bg = "rgba(34, 197, 94, 0.9)"; // green
+    bg = "rgba(34, 197, 94, 0.9)";
   } else if (brightness < 80) {
     label = "Lighting: Too Dark";
-    bg = "rgba(239, 68, 68, 0.9)"; // red
+    bg = "rgba(239, 68, 68, 0.9)";
   } else {
     label = "Lighting: Too Bright";
-    bg = "rgba(234, 179, 8, 0.9)"; // yellow
+    bg = "rgba(234, 179, 8, 0.9)";
   }
 
   lightingDiv.innerHTML = `<div style="
-  background: ${bg};
-  padding: 12px 24px;
-  border-radius: 12px;
-  color: white;
-  font-weight: bold;
-  width: fit-content;
-  margin: 0 auto;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.7);
-">${label}</div>`;
+    background: ${bg};
+    padding: 12px 24px;
+    border-radius: 12px;
+    color: white;
+    font-weight: bold;
+    width: fit-content;
+    margin: 0 auto;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.7);
+  ">${label}</div>`;
 }

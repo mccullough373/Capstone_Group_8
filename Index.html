@@ -11,6 +11,16 @@
   <body>
     <h1>PG Scanner</h1>
 
+    <!-- Account Lockout Modal -->
+    <div id="lockout-model" class="model" style="display: none">
+      <div class="model-content" style="text-align: center;">
+        <h2>Account Locked</h2>
+        <p style="font-size: 1.1rem;">Too many incorrect password attempts. To regain access, you must reset your password.</p>
+        <p style="color: red; font-size: 0.85rem; font-weight: bold; margin-top: 1.5rem; max-width: 60%; margin-left: auto; margin-right: auto;">Warning: Resetting your password will permanently erase all stored patient data, as it cannot be recovered without the original password.</p>
+        <button id="reset-password-btn" class="encryption-btn">Reset Password & Erase Data</button>
+      </div>
+    </div>
+
     <!-- Encryption Setup model -->
     <div id="encryption-model" class="model" style="display: none">
       <div class="model-content">
@@ -90,6 +100,8 @@
             Export PDF
           </button>
           <button id="StartCamBtn">Start Scan</button>
+          <button id="TakePhotoBtn" style="display:none">Scan</button>
+          <button id="FlipCamBtn" style="display:none">Flip Camera</button>
         </div>
       </div>
     </div>
