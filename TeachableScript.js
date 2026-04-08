@@ -40,6 +40,8 @@ async function init() {
       await startWebcam();
       window.requestAnimationFrame(loop);
 
+      // Add webcam canvas to DOM
+      document.getElementById("webcam-container").appendChild(webcam.canvas);
       labelContainer = document.getElementById("label-container");
 
       const flipBtn = document.getElementById("FlipCamBtn");
@@ -159,6 +161,7 @@ async function predict() {
   for (let i = 0; i < maxPredictions; i++) {
     if (prediction[i].className.toLowerCase().includes("pg")) {
       pgPrediction = prediction[i];
+      checkLighting();
       break;
     }
   }
@@ -193,6 +196,7 @@ function checkLighting() {
   // Standard luminance formula averaged across all pixels
   let total = 0;
   for (let i = 0; i < data.length; i += 4) {
+    // Standard luminance formula
     total += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
   }
   const brightness = total / (data.length / 4);
