@@ -20,6 +20,9 @@ const masterPasswordInput = document.getElementById("master-password");
 const confirmPasswordInput = document.getElementById("confirm-password");
 const encryptionError = document.getElementById("encryption-error");
 
+const lockoutModal = document.getElementById("lockout-model");
+const resetPasswordBtn = document.getElementById("reset-password-btn");
+
 const patientImageInput = document.getElementById("patient-image");
 const imagePreviewContainer = document.getElementById("image-preview-container");
 const imagePreview = document.getElementById("image-preview");
@@ -33,21 +36,31 @@ let uploadedImageData = null;
 // ========== Encryption & Initialization ==========
 
 window.addEventListener("load", async () => {
-  if (!localStorage.getItem("encryption_salt")) {
+  if (localStorage.getItem("account_locked") === "true") {
+    lockoutModal.style.display = "block";
+  } else if (!localStorage.getItem("encryption_salt")) {
     encryptionModal.style.display = "block";
   } else {
     await promptForPassword();
   }
 });
 
+resetPasswordBtn.addEventListener("click", () => {
+  if (!confirm("Are you sure? This will permanently erase all patient data and cannot be undone.")) return;
+  localStorage.clear();
+  encryptionModal.style.display = "block";
+  lockoutModal.style.display = "none";
+});
+
 async function promptForPassword() {
-  const maxAttempts = 3;
+  const maxAttempts = 5;
 
   for (let attempts = 0; attempts < maxAttempts; attempts++) {
+    const failedSoFar = parseInt(localStorage.getItem("failed_attempts") || "0", 10);
     const password = prompt(
       attempts === 0
         ? "Enter master password to unlock application:"
-        : `Incorrect password. Attempt ${attempts + 1}/${maxAttempts}:`
+        : `Incorrect password. Attempt ${failedSoFar + 1}/${maxAttempts}:`
     );
 
     if (!password) {
@@ -69,6 +82,7 @@ async function promptForPassword() {
 
       const decryptedToken = await encryption.decrypt(verificationToken);
       if (decryptedToken.verify === "PG_SCANNER_AUTH_TOKEN") {
+        localStorage.removeItem("failed_attempts");
         await patientDB.init();
         return;
       } else {
@@ -78,8 +92,12 @@ async function promptForPassword() {
       console.error("Password verification failed:", error);
       encryption.key = null;
 
-      if (attempts + 1 >= maxAttempts) {
-        alert("Too many failed attempts.\n\nPlease refresh the page and try again.");
+      const newFailCount = parseInt(localStorage.getItem("failed_attempts") || "0", 10) + 1;
+      localStorage.setItem("failed_attempts", newFailCount);
+
+      if (newFailCount >= maxAttempts) {
+        localStorage.setItem("account_locked", "true");
+        alert("Account locked after too many failed attempts.\n\nYou must reset your password to continue.");
         location.reload();
         return;
       }
@@ -91,8 +109,15 @@ setupEncryptionBtn.addEventListener("click", async () => {
   const password = masterPasswordInput.value;
   const confirm = confirmPasswordInput.value;
 
-  if (!password || password.length < 8) {
-    encryptionError.textContent = "Password must be at least 8 characters";
+  const passwordErrors = [];
+  if (!password || password.length < 8) passwordErrors.push("at least 8 characters");
+  if (!/[A-Z]/.test(password)) passwordErrors.push("an uppercase letter");
+  if (!/[a-z]/.test(password)) passwordErrors.push("a lowercase letter");
+  if (!/[0-9]/.test(password)) passwordErrors.push("a number");
+  if (!/[^A-Za-z0-9]/.test(password)) passwordErrors.push("a special character");
+
+  if (passwordErrors.length > 0) {
+    encryptionError.textContent = "Password must contain: " + passwordErrors.join(", ");
     encryptionError.style.display = "block";
     return;
   }
