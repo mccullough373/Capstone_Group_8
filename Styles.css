@@ -586,6 +586,23 @@ h4 {
     font-size: 1rem;
   }
 
+  /* Stack the camera overlay badges vertically so they don't collide on narrow screens */
+  #label-container {
+    bottom: 46px;
+  }
+
+  #lighting-container {
+    left: 14px;
+    right: auto;
+    bottom: 14px;
+  }
+
+  #label-container div,
+  #lighting-container div {
+    font-size: 0.75rem !important;
+    padding: 4px 10px !important;
+  }
+
   .form-container { padding: 20px; }
 
   .model-content {
