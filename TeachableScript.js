@@ -149,6 +149,16 @@ function loop() {
 
 // ========== Prediction ==========
 
+async function predictOnImageElement(imgEl) {
+  const prevEl = uploadedImageElement;
+  const prevUseUploaded = useUploadedImage;
+  uploadedImageElement = imgEl;
+  useUploadedImage = true;
+  await predict();
+  uploadedImageElement = prevEl;
+  useUploadedImage = prevUseUploaded;
+}
+
 async function captureAndPredict() {
   const btn = document.getElementById("TakePhotoBtn");
   if (btn) { btn.disabled = true; btn.textContent = "Scanning..."; }

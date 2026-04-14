@@ -3,7 +3,6 @@
 const StartCamBtn = document.getElementById("StartCamBtn");
 const PDFbtn = document.getElementById("PDFbtn");
 const backBtn = document.getElementById("back-btn");
-const textElement = document.getElementById("text");
 const patientFormContainer = document.getElementById("patient-form-container");
 const takePhotoBtn = document.getElementById("TakePhotoBtn");
 const viewRecordsBtn = document.getElementById("view-records-btn");
@@ -228,12 +227,22 @@ StartCamBtn.addEventListener("click", async () => {
 
     StartCamBtn.style.display = "none";
     viewRecordsBtn.style.display = "none";
-    textElement.style.display = "block";
     patientFormContainer.style.display = "none";
 
     if (!window.uploadedImageData) {
       takePhotoBtn.style.display = "inline-block";
     } else {
+      const normalizedFirst = await normalizeImageOrientation(window.uploadedImageData);
+      scanResults.push({
+        frameData: normalizedFirst,
+        confidenceText: getConfidenceText(),
+        timestamp: new Date().toLocaleString(),
+      });
+      window.scanResults = scanResults;
+      const n = scanResults.length;
+      scanCounter.textContent = `${n} scan${n === 1 ? "" : "s"} saved`;
+      scanCounter.style.display = "block";
+      document.getElementById("AddImageBtn").style.display = "inline-block";
       PDFbtn.style.display = "block";
       backBtn.style.display = "block";
     }
@@ -252,7 +261,17 @@ takePhotoBtn.addEventListener("click", async () => {
 
   await captureAndPredict();
 
-  // Store this scan's results before the label-container could change
+  // Show preview so user can approve or retake before saving
+  const previewModal = document.getElementById("scan-preview-modal");
+  const previewImg = document.getElementById("scan-preview-img");
+
+  previewImg.src = window.scannedFrameData || "";
+  previewModal.style.display = "block";
+});
+
+document.getElementById("keep-scan-btn").addEventListener("click", () => {
+  document.getElementById("scan-preview-modal").style.display = "none";
+
   scanResults.push({
     frameData: window.scannedFrameData,
     confidenceText: getConfidenceText(),
@@ -260,12 +279,27 @@ takePhotoBtn.addEventListener("click", async () => {
   });
   window.scanResults = scanResults;
 
-  // Camera keeps running — user can reposition and click again immediately
+  // If in uploaded-image mode, update the preview to show the most recent image
+  const webcamContainer = document.getElementById("webcam-container");
+  if (webcamContainer.querySelector("img") && window.scannedFrameData) {
+    webcamContainer.innerHTML = "";
+    const updatedImg = document.createElement("img");
+    updatedImg.src = window.scannedFrameData;
+    webcamContainer.appendChild(updatedImg);
+  }
+
   takePhotoBtn.textContent = "Scan Again";
-  scanCounter.textContent = `${scanResults.length} scan(s) captured`;
+  const n = scanResults.length;
+  scanCounter.textContent = `${n} scan${n === 1 ? "" : "s"} saved`;
   scanCounter.style.display = "block";
   PDFbtn.style.display = "block";
   backBtn.style.display = "block";
+});
+
+document.getElementById("retake-scan-btn").addEventListener("click", () => {
+  document.getElementById("scan-preview-modal").style.display = "none";
+  window.scannedFrameData = null;
+  // Camera keeps running — user repositions and scans again
 });
 
 backBtn.addEventListener("click", () => {
@@ -301,14 +335,63 @@ backBtn.addEventListener("click", () => {
   patientFormContainer.style.display = "block";
   StartCamBtn.disabled = false;
   StartCamBtn.textContent = "Start Scan";
+  StartCamBtn.style.display = "block";
   viewRecordsBtn.style.display = "block";
   takePhotoBtn.style.display = "none";
   takePhotoBtn.textContent = "Scan";
   scanCounter.style.display = "none";
   document.getElementById("FlipCamBtn").style.display = "none";
+  document.getElementById("scan-preview-modal").style.display = "none";
+  document.getElementById("AddImageBtn").style.display = "none";
   PDFbtn.style.display = "none";
   backBtn.style.display = "none";
-  textElement.style.display = "none";
+});
+
+// ========== Image Helpers ==========
+
+// Draws the image through a canvas so jsPDF receives orientation-corrected pixel data.
+// Modern browsers apply EXIF rotation when rendering <img> but jsPDF uses the raw bytes.
+function normalizeImageOrientation(dataURL) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      canvas.getContext("2d").drawImage(img, 0, 0);
+      resolve(canvas.toDataURL("image/jpeg", 0.92));
+    };
+    img.src = dataURL;
+  });
+}
+
+// ========== Additional Image Upload ==========
+
+document.getElementById("AddImageBtn").addEventListener("click", () => {
+  document.getElementById("extra-image-input").click();
+});
+
+document.getElementById("extra-image-input").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  e.target.value = "";
+
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    const normalizedURL = await normalizeImageOrientation(ev.target.result);
+
+    const img = new Image();
+    img.src = normalizedURL;
+    await new Promise((r) => (img.onload = r));
+
+    await predictOnImageElement(img);
+
+    window.scannedFrameData = normalizedURL;
+    const previewImg = document.getElementById("scan-preview-img");
+    previewImg.src = normalizedURL;
+    document.getElementById("scan-preview-modal").style.display = "block";
+  };
+  reader.readAsDataURL(file);
 });
 
 // ========== PDF Export ==========

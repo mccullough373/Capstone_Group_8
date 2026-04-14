@@ -147,6 +147,7 @@ h4 {
 #PDFbtn,
 #StartCamBtn,
 #TakePhotoBtn,
+#AddImageBtn,
 #view-records-btn,
 #back-btn {
   padding: 10px 0;
@@ -166,6 +167,7 @@ h4 {
 #PDFbtn:hover,
 #StartCamBtn:hover,
 #TakePhotoBtn:hover,
+#AddImageBtn:hover,
 #view-records-btn:hover,
 #back-btn:hover {
   background: #333;
@@ -213,10 +215,6 @@ h4 {
 
 /* ========== Webcam / Scan Area ========== */
 
-#text {
-  display: none;
-}
-
 #patient-form-container {
   display: block;
 }
@@ -251,30 +249,54 @@ h4 {
 }
 
 #label-container {
-  margin-top: 20px;
-  color: #fff;
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 6px;
+  z-index: 5;
+  pointer-events: none;
 }
 
 #label-container div {
-  background: rgb(0, 0, 0);
-  border-radius: 12px;
-  padding: 12px 24px;
-  margin: 6px auto;
+  border-radius: 10px;
+  padding: 6px 14px;
   width: fit-content;
-  font-size: 1.1rem;
+  font-size: 0.85rem;
   color: #fff;
   font-weight: 700;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.7);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
 }
 
-#label-container div:hover {
-  transform: scale(1.05);
-  box-shadow: 0 0 15px 3px rgba(0, 0, 0, 0.5);
+#lighting-container {
+  position: absolute;
+  bottom: 14px;
+  right: 14px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+#lighting-container div {
+  font-size: 0.85rem !important;
+  padding: 6px 14px !important;
+  border-radius: 10px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6) !important;
+}
+
+#scan-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: 999px;
+  text-align: center;
 }
 
 /* ========== Modals ========== */
@@ -474,6 +496,78 @@ h4 {
   padding: 20px;
 }
 
+/* ========== Scan Preview Modal ========== */
+
+.scan-preview-content {
+  max-width: 480px;
+  text-align: center;
+}
+
+#scan-preview-img {
+  width: 100%;
+  max-width: 400px;
+  border: 3px solid #fff;
+  border-radius: 14px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+  display: block;
+  margin: 0 auto 16px;
+}
+
+#scan-preview-result {
+  margin-bottom: 20px;
+}
+
+#scan-preview-result div {
+  border-radius: 12px;
+  padding: 10px 20px;
+  width: fit-content;
+  margin: 0 auto;
+  font-size: 1rem;
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+.scan-preview-buttons {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+}
+
+#retake-scan-btn {
+  padding: 10px 28px;
+  background: #f44336;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+#retake-scan-btn:hover {
+  background: #da190b;
+  transform: scale(1.05);
+}
+
+#keep-scan-btn {
+  padding: 10px 28px;
+  background: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+#keep-scan-btn:hover {
+  background: #45a049;
+  transform: scale(1.05);
+}
+
 /* ========== Responsive ========== */
 
 @media (max-width: 768px) {
@@ -485,6 +579,7 @@ h4 {
   #PDFbtn,
   #StartCamBtn,
   #TakePhotoBtn,
+  #AddImageBtn,
   #view-records-btn,
   #back-btn {
     width: 180px;

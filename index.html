@@ -84,27 +84,27 @@
       </form>
     </div>
 
-    <h4 id="text">Scan Results</h4>
-
     <!-- Scanner layout: camera left, sidebar right -->
     <div class="scanner-layout">
       <div class="cam-wrapper">
         <div class="camPlaceHolder" id="webcam-container"></div>
         <button id="FlipCamBtn" style="display:none" title="Flip Camera">&#x21BA;</button>
+        <div id="label-container"></div>
+        <div id="lighting-container"></div>
       </div>
 
       <div class="scanner-sidebar">
-        <div id="label-container"></div>
-        <div id="lighting-container"></div>
         <div class="button-container">
+          <button id="TakePhotoBtn" style="display:none">Scan</button>
+          <button id="AddImageBtn" style="display:none">Add Another Image</button>
+          <input type="file" id="extra-image-input" accept="image/*" style="display:none" />
+          <span id="scan-counter" style="display:none;"></span>
           <button id="view-records-btn">View Records</button>
           <button id="back-btn">Add Another Patient</button>
           <button id="PDFbtn" onclick="exportToPDFWithPatient()">
             Export PDF
           </button>
           <button id="StartCamBtn">Start Scan</button>
-          <button id="TakePhotoBtn" style="display:none">Scan</button>
-          <span id="scan-counter" style="display:none; font-size:0.85rem; color:#ccc; margin-top:4px; text-align:center;"></span>
         </div>
       </div>
     </div>
@@ -124,6 +124,18 @@
           <button id="show-all-btn">Show All</button>
         </div>
         <div id="records-list"></div>
+      </div>
+    </div>
+
+    <!-- Scan Preview Modal -->
+    <div id="scan-preview-modal" class="model" style="display:none">
+      <div class="model-content scan-preview-content">
+        <h3>Review Scan</h3>
+        <img id="scan-preview-img" alt="Captured scan" />
+        <div class="scan-preview-buttons">
+          <button id="retake-scan-btn">Retake</button>
+          <button id="keep-scan-btn">Keep Scan</button>
+        </div>
       </div>
     </div>
 
