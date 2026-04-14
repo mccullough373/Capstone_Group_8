@@ -248,7 +248,8 @@ h4 {
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.7);
 }
 
-#label-container {
+/* Wrapper that keeps both overlay badges stacked at the bottom-left of the camera */
+#overlay-badges {
   position: absolute;
   bottom: 14px;
   left: 14px;
@@ -258,6 +259,13 @@ h4 {
   gap: 6px;
   z-index: 5;
   pointer-events: none;
+}
+
+#label-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
 }
 
 #label-container div {
@@ -270,13 +278,6 @@ h4 {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
 }
 
-#lighting-container {
-  position: absolute;
-  bottom: 14px;
-  right: 14px;
-  z-index: 5;
-  pointer-events: none;
-}
 
 #lighting-container div {
   font-size: 0.85rem !important;
@@ -584,17 +585,6 @@ h4 {
   #back-btn {
     width: 180px;
     font-size: 1rem;
-  }
-
-  /* Stack the camera overlay badges vertically so they don't collide on narrow screens */
-  #label-container {
-    bottom: 46px;
-  }
-
-  #lighting-container {
-    left: 14px;
-    right: auto;
-    bottom: 14px;
   }
 
   #label-container div,
