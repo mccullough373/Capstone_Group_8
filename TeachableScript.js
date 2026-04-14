@@ -45,7 +45,11 @@ async function init() {
       labelContainer = document.getElementById("label-container");
 
       const flipBtn = document.getElementById("FlipCamBtn");
-      if (flipBtn) flipBtn.style.display = "inline-block";
+      if (flipBtn) {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoInputs = devices.filter((d) => d.kind === "videoinput");
+        flipBtn.style.display = videoInputs.length > 1 ? "inline-block" : "none";
+      }
     }
   } catch (error) {
     console.error("Initialization error:", error);
@@ -108,8 +112,15 @@ async function startWebcam() {
 }
 
 async function flipCamera() {
+  const previousMode = currentFacingMode;
   currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
-  await startWebcam();
+  try {
+    await startWebcam();
+  } catch (error) {
+    console.warn("Camera flip failed, reverting:", error);
+    currentFacingMode = previousMode;
+    await startWebcam();
+  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
