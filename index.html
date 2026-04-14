@@ -88,7 +88,10 @@
 
     <!-- Scanner layout: camera left, sidebar right -->
     <div class="scanner-layout">
-      <div class="camPlaceHolder" id="webcam-container"></div>
+      <div class="cam-wrapper">
+        <div class="camPlaceHolder" id="webcam-container"></div>
+        <button id="FlipCamBtn" style="display:none" title="Flip Camera">&#x21BA;</button>
+      </div>
 
       <div class="scanner-sidebar">
         <div id="label-container"></div>
@@ -101,7 +104,7 @@
           </button>
           <button id="StartCamBtn">Start Scan</button>
           <button id="TakePhotoBtn" style="display:none">Scan</button>
-          <button id="FlipCamBtn" style="display:none">Flip Camera</button>
+          <span id="scan-counter" style="display:none; font-size:0.85rem; color:#ccc; margin-top:4px; text-align:center;"></span>
         </div>
       </div>
     </div>

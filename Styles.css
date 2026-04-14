@@ -147,7 +147,6 @@ h4 {
 #PDFbtn,
 #StartCamBtn,
 #TakePhotoBtn,
-#FlipCamBtn,
 #view-records-btn,
 #back-btn {
   padding: 10px 0;
@@ -167,11 +166,34 @@ h4 {
 #PDFbtn:hover,
 #StartCamBtn:hover,
 #TakePhotoBtn:hover,
-#FlipCamBtn:hover,
 #view-records-btn:hover,
 #back-btn:hover {
   background: #333;
   transform: scale(1.05);
+}
+
+/* Flip camera — overlay icon on the camera feed */
+#FlipCamBtn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 10;
+  padding: 0;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+#FlipCamBtn:hover {
+  background: rgba(0, 0, 0, 0.85);
+  transform: scale(1.1);
 }
 
 #PDFbtn:disabled,
@@ -199,10 +221,15 @@ h4 {
   display: block;
 }
 
-#webcam-container {
+.cam-wrapper {
+  position: relative;
   width: 90%;
   max-width: 800px;
   margin: 0 auto;
+}
+
+#webcam-container {
+  width: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -458,7 +485,6 @@ h4 {
   #PDFbtn,
   #StartCamBtn,
   #TakePhotoBtn,
-  #FlipCamBtn,
   #view-records-btn,
   #back-btn {
     width: 180px;

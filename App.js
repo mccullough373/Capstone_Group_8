@@ -27,11 +27,13 @@ const patientImageInput = document.getElementById("patient-image");
 const imagePreviewContainer = document.getElementById("image-preview-container");
 const imagePreview = document.getElementById("image-preview");
 const removeImageBtn = document.getElementById("remove-image-btn");
+const scanCounter = document.getElementById("scan-counter");
 
 // ========== State ==========
 
 let currentPatientData = null;
 let uploadedImageData = null;
+let scanResults = [];
 
 // ========== Encryption & Initialization ==========
 
@@ -225,6 +227,7 @@ StartCamBtn.addEventListener("click", async () => {
     await init();
 
     StartCamBtn.style.display = "none";
+    viewRecordsBtn.style.display = "none";
     textElement.style.display = "block";
     patientFormContainer.style.display = "none";
 
@@ -248,15 +251,20 @@ takePhotoBtn.addEventListener("click", async () => {
   }
 
   await captureAndPredict();
-  await exportToPDFWithPatient();
 
-  isRunning = false;
-  if (webcam?._videoEl?.srcObject) {
-    webcam._videoEl.srcObject.getTracks().forEach((t) => t.stop());
-  }
+  // Store this scan's results before the label-container could change
+  scanResults.push({
+    frameData: window.scannedFrameData,
+    confidenceText: getConfidenceText(),
+    timestamp: new Date().toLocaleString(),
+  });
+  window.scanResults = scanResults;
 
-  takePhotoBtn.style.display = "none";
-  document.getElementById("FlipCamBtn").style.display = "none";
+  // Camera keeps running — user can reposition and click again immediately
+  takePhotoBtn.textContent = "Scan Again";
+  scanCounter.textContent = `${scanResults.length} scan(s) captured`;
+  scanCounter.style.display = "block";
+  PDFbtn.style.display = "block";
   backBtn.style.display = "block";
 });
 
@@ -277,8 +285,10 @@ backBtn.addEventListener("click", () => {
 
   currentPatientData = null;
   uploadedImageData = null;
+  scanResults = [];
   window.uploadedImageData = null;
   window.scannedFrameData = null;
+  window.scanResults = null;
 
   document.getElementById("patient-name").value = "";
   document.getElementById("patient-age").value = "";
@@ -289,10 +299,12 @@ backBtn.addEventListener("click", () => {
   imagePreviewContainer.style.display = "none";
 
   patientFormContainer.style.display = "block";
-  StartCamBtn.style.display = "block";
   StartCamBtn.disabled = false;
   StartCamBtn.textContent = "Start Scan";
+  viewRecordsBtn.style.display = "block";
   takePhotoBtn.style.display = "none";
+  takePhotoBtn.textContent = "Scan";
+  scanCounter.style.display = "none";
   document.getElementById("FlipCamBtn").style.display = "none";
   PDFbtn.style.display = "none";
   backBtn.style.display = "none";

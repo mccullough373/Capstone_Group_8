@@ -4,50 +4,69 @@ async function exportToPDF() {
   const w = pdf.internal.pageSize.getWidth();
   const h = pdf.internal.pageSize.getHeight();
   const margin = 36;
+  const IMG_HEIGHT = 220;
   let y = margin;
 
+  const cx = w / 2; // horizontal center
+
   // Title
-  pdf.setFont("helvetica", "bold").setFontSize(18).text("PG Scanner Report", margin, y);
+  pdf.setFont("helvetica", "bold").setFontSize(18).text("PG Scanner Report", cx, y, { align: "center" });
   y += 22;
-  pdf.setFont("helvetica", "normal").setFontSize(11).text(`Generated: ${new Date().toLocaleString()}`, margin, y);
-  y += 16;
+  pdf.setFont("helvetica", "normal").setFontSize(11).text(`Generated: ${new Date().toLocaleString()}`, cx, y, { align: "center" });
+  y += 24;
 
-  // Snapshot
-  const imgData = getSnapshotDataURL();
-  if (imgData) {
-    const img = new Image();
-    img.src = imgData;
-    await new Promise((r) => (img.onload = r));
+  // Build scan list — use multi-scan results if available, otherwise fall back to single scan
+  const scans = (window.scanResults && window.scanResults.length > 0)
+    ? window.scanResults
+    : [{ frameData: getSnapshotDataURL(), confidenceText: getConfidenceText(), timestamp: new Date().toLocaleString() }];
 
-    const maxWidth = w - margin * 2;
-    const maxHeight = h - y - margin - 100;
-    const imgAspectRatio = img.width / img.height;
-    const maxAspectRatio = maxWidth / maxHeight;
+  for (let i = 0; i < scans.length; i++) {
+    const scan = scans[i];
 
-    let drawWidth, drawHeight;
-    if (imgAspectRatio > maxAspectRatio) {
-      drawWidth = maxWidth;
-      drawHeight = maxWidth / imgAspectRatio;
-    } else {
-      drawHeight = maxHeight;
-      drawWidth = maxHeight * imgAspectRatio;
+    // Each scan after the first gets its own page
+    if (i > 0) { pdf.addPage(); y = margin; }
+
+    // Section header when there are multiple scans
+    if (scans.length > 1) {
+      pdf.setFont("helvetica", "bold").setFontSize(13)
+        .text(`Scan ${i + 1}  —  ${scan.timestamp}`, cx, y, { align: "center" });
+      y += 20;
+      pdf.setDrawColor(180).setLineWidth(0.5).line(margin, y, w - margin, y);
+      y += 12;
     }
 
-    pdf.addImage(imgData, "JPEG", (w - drawWidth) / 2, y, drawWidth, drawHeight);
-    y += drawHeight + 18;
-  } else {
-    pdf.setTextColor(200, 0, 0).text("Snapshot unavailable (camera not ready).", margin, y);
-    pdf.setTextColor(0, 0, 0);
-    y += 18;
-  }
+    // Snapshot
+    if (scan.frameData) {
+      const img = new Image();
+      img.src = scan.frameData;
+      await new Promise((r) => (img.onload = r));
 
-  // Confidence levels
-  pdf.setFont("helvetica", "bold").setFontSize(14).text("Confidence Levels", margin, y);
-  y += 16;
-  pdf.setFont("helvetica", "normal").setFontSize(12);
-  const wrapped = pdf.splitTextToSize(getConfidenceText(), w - margin * 2);
-  if (y + wrapped.length * 14 > h - margin) { pdf.addPage(); y = margin; }
-  pdf.text(wrapped, margin, y);
+      const maxWidth = w - margin * 2;
+      const imgAspectRatio = img.width / img.height;
+      let drawHeight = IMG_HEIGHT;
+      let drawWidth = IMG_HEIGHT * imgAspectRatio;
+      if (drawWidth > maxWidth) {
+        drawWidth = maxWidth;
+        drawHeight = maxWidth / imgAspectRatio;
+      }
+
+      pdf.addImage(scan.frameData, "JPEG", (w - drawWidth) / 2, y, drawWidth, drawHeight);
+      y += drawHeight + 18;
+    } else {
+      pdf.setTextColor(200, 0, 0).text("Snapshot unavailable.", cx, y, { align: "center" });
+      pdf.setTextColor(0, 0, 0);
+      y += 18;
+    }
+
+    // Confidence levels
+    pdf.setFont("helvetica", "bold").setFontSize(14).setTextColor(0, 0, 0).text("Confidence Levels", cx, y, { align: "center" });
+    y += 16;
+    pdf.setFont("helvetica", "normal").setFontSize(12);
+    const wrapped = pdf.splitTextToSize(scan.confidenceText || "No confidence values available.", w - margin * 2);
+    if (y + wrapped.length * 14 > h - margin) { pdf.addPage(); y = margin; }
+    pdf.text(wrapped, cx, y, { align: "center" });
+    y += wrapped.length * 14;
+  }
 
   const filename = `PG-Scan_${timestamp()}.pdf`;
   const pdfBlob = pdf.output("blob");
