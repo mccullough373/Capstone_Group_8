@@ -1,4 +1,4 @@
-async function exportToPDF(mobileWindow) {
+async function exportToPDF() {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
   const w = pdf.internal.pageSize.getWidth();
@@ -71,23 +71,34 @@ async function exportToPDF(mobileWindow) {
   const filename = `PG-Scan_${timestamp()}.pdf`;
   const pdfBlob = pdf.output("blob");
 
-  if (mobileWindow) {
-    // Navigate the pre-opened window to a data URI — blob URLs aren't
-    // accessible cross-context, and window.open after an await is blocked
-    // by iOS Safari's popup blocker.
-    mobileWindow.location.href = pdf.output("datauristring");
-  } else {
-    const url = URL.createObjectURL(pdfBlob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
-  }
+  await downloadPDF(pdfBlob, filename);
 
   return { filename, pdfBlob };
+}
+
+// ========== Shared Download Helper ==========
+
+async function downloadPDF(blob, filename) {
+  const pdfFile = new File([blob], filename, { type: "application/pdf" });
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+  if (isMobile && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+    try {
+      await navigator.share({ files: [pdfFile], title: "PG Scanner Report" });
+    } catch (e) {
+      if (e.name !== "AbortError") console.warn("Share failed:", e);
+    }
+    return;
+  }
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 // ========== Helpers ==========

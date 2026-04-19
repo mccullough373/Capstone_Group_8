@@ -68,15 +68,10 @@ async function init() {
 async function startWebcam() {
   const container = document.getElementById("webcam-container");
 
-  if (webcam?._videoEl) {
-    webcam._videoEl.srcObject?.getTracks().forEach((t) => t.stop());
-    webcam._videoEl.remove();
-  }
-  container.innerHTML = "";
-
   // iOS Safari requires { exact: "environment" } to reliably switch to the back camera
   const facingConstraint = currentFacingMode === "environment" ? { exact: "environment" } : "user";
 
+  // Get the new stream before touching the existing preview so there's no blank flash
   const stream = await navigator.mediaDevices.getUserMedia({
     video: { facingMode: facingConstraint },
     audio: false,
@@ -92,6 +87,13 @@ async function startWebcam() {
     if (video.readyState >= 1) resolve();
     else video.addEventListener("loadedmetadata", resolve, { once: true });
   });
+
+  // New stream is ready — now tear down the old one and swap in the new canvas
+  if (webcam?._videoEl) {
+    webcam._videoEl.srcObject?.getTracks().forEach((t) => t.stop());
+    webcam._videoEl.remove();
+  }
+  container.innerHTML = "";
 
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth || 640;
