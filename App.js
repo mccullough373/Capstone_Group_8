@@ -590,27 +590,21 @@ async function downloadPatientPDF(id) {
       : new Blob([patient.pdfBlob], { type: "application/pdf" });
 
     const filename = patient.pdfFilename || `Patient_${patient.id}_${patient.name.replace(/\s+/g, "_")}_Report.pdf`;
-    const pdfFile = new File([blob], filename, { type: "application/pdf" });
-
-    // Use the native share sheet on mobile — iOS Safari ignores <a download> on blob URLs
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-      try {
-        await navigator.share({ files: [pdfFile], title: filename });
-      } catch (e) {
-        if (e.name !== "AbortError") console.warn("Share failed:", e);
-      }
-      return;
-    }
-
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } else {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
   } catch (error) {
     console.error("Error downloading PDF:", error);
     alert(`Failed to download PDF: ${error.message}`);
