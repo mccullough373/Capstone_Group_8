@@ -70,28 +70,23 @@ async function exportToPDF() {
 
   const filename = `PG-Scan_${timestamp()}.pdf`;
   const pdfBlob = pdf.output("blob");
-
-  // On mobile, use the native share sheet — iOS Safari ignores <a download> on blob URLs
-  const pdfFile = new File([pdfBlob], filename, { type: "application/pdf" });
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  if (isMobile && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-    try {
-      await navigator.share({ files: [pdfFile], title: "PG Scanner Report" });
-    } catch (e) {
-      if (e.name !== "AbortError") console.warn("Share failed:", e);
-    }
-    return { filename, pdfBlob };
-  }
-
-  // Desktop: trigger a direct download
   const url = URL.createObjectURL(pdfBlob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
+
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  if (isMobile) {
+    // iOS Safari can't trigger a silent download — open in a new tab so the
+    // user can save from the PDF viewer without a share sheet appearing.
+    window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } else {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
 
   return { filename, pdfBlob };
 }
