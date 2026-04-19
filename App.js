@@ -205,9 +205,15 @@ function validatePatientForm() {
 function showCapturedFrame(frameData) {
   const container = document.getElementById("webcam-container");
   container.innerHTML = "";
+
+  // Wrap img + X button together so the X is always anchored to the image corner
+  const imgWrapper = document.createElement("div");
+  imgWrapper.style.cssText = "position: relative; display: inline-block; max-width: 600px; width: 100%;";
   const img = document.createElement("img");
   img.src = frameData;
-  container.appendChild(img);
+  imgWrapper.appendChild(img);
+  imgWrapper.appendChild(xScanBtn);
+  container.appendChild(imgWrapper);
 
   xScanBtn.style.display = "block";
   document.getElementById("lighting-container").style.display = "none";
@@ -246,6 +252,9 @@ function updateScanCounter() {
 // Restore the live camera feed (used by both X and "Scan Again")
 function restoreLiveFeed() {
   const container = document.getElementById("webcam-container");
+  // Rescue xScanBtn from inside the image wrapper before clearing
+  const camWrapper = container.closest(".cam-wrapper");
+  if (xScanBtn.parentElement !== camWrapper) camWrapper.appendChild(xScanBtn);
   container.innerHTML = "";
   if (webcam?.canvas) container.appendChild(webcam.canvas);
   xScanBtn.style.display = "none";

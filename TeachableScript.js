@@ -177,7 +177,7 @@ async function predict() {
     return;
   }
 
-  const pgPrediction = prediction.find((p) => p.className.toLowerCase().includes("pg")) ?? null;
+  const pgPrediction = prediction.find((p) => p.className.trim().toLowerCase() === "pg") ?? null;
 
   if (pgPrediction) {
     const prob = pgPrediction.probability * 100;
