@@ -439,9 +439,14 @@ async function exportToPDFWithPatient() {
     return;
   }
 
+  // Open the window synchronously here — iOS Safari blocks window.open called
+  // after any await, so we must do it before any async work begins.
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  const mobileWindow = isMobile ? window.open("about:blank", "_blank") : null;
+
   try {
     // @ts-ignore — exportToPDF is async; TS can't infer its return type across plain JS files
-    const { filename, pdfBlob } = await exportToPDF();
+    const { filename, pdfBlob } = await exportToPDF(mobileWindow);
     currentPatientData.pdfFilename = filename;
     currentPatientData.pdfBlob = pdfBlob;
 
@@ -455,6 +460,7 @@ async function exportToPDFWithPatient() {
     resetState();
     setTimeout(resetUI, 100);
   } catch (error) {
+    if (mobileWindow) mobileWindow.close();
     console.error("Error saving patient record:", error);
     alert("PDF exported but failed to save patient record.\n\nError: " + error.message);
   }
@@ -572,15 +578,20 @@ async function viewPatientDetails(id) {
 }
 
 async function downloadPatientPDF(id) {
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  const mobileWindow = isMobile ? window.open("about:blank", "_blank") : null;
+
   try {
     const patient = await patientDB.getPatientById(id);
 
     if (!patient) {
+      if (mobileWindow) mobileWindow.close();
       alert("Patient record not found.");
       return;
     }
 
     if (!patient.pdfBlob) {
+      if (mobileWindow) mobileWindow.close();
       alert("PDF file not available. The PDF may have been generated before this feature was added.");
       return;
     }
@@ -590,13 +601,16 @@ async function downloadPatientPDF(id) {
       : new Blob([patient.pdfBlob], { type: "application/pdf" });
 
     const filename = patient.pdfFilename || `Patient_${patient.id}_${patient.name.replace(/\s+/g, "_")}_Report.pdf`;
-    const url = URL.createObjectURL(blob);
 
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) {
-      window.open(url, "_blank");
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    if (mobileWindow) {
+      const dataUri = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      });
+      mobileWindow.location.href = dataUri;
     } else {
+      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = filename;
@@ -606,6 +620,7 @@ async function downloadPatientPDF(id) {
       URL.revokeObjectURL(url);
     }
   } catch (error) {
+    if (mobileWindow) mobileWindow.close();
     console.error("Error downloading PDF:", error);
     alert(`Failed to download PDF: ${error.message}`);
   }

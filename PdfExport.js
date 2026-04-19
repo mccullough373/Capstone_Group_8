@@ -1,4 +1,4 @@
-async function exportToPDF() {
+async function exportToPDF(mobileWindow) {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
   const w = pdf.internal.pageSize.getWidth();
@@ -70,15 +70,14 @@ async function exportToPDF() {
 
   const filename = `PG-Scan_${timestamp()}.pdf`;
   const pdfBlob = pdf.output("blob");
-  const url = URL.createObjectURL(pdfBlob);
 
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  if (isMobile) {
-    // iOS Safari can't trigger a silent download — open in a new tab so the
-    // user can save from the PDF viewer without a share sheet appearing.
-    window.open(url, "_blank");
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  if (mobileWindow) {
+    // Navigate the pre-opened window to a data URI — blob URLs aren't
+    // accessible cross-context, and window.open after an await is blocked
+    // by iOS Safari's popup blocker.
+    mobileWindow.location.href = pdf.output("datauristring");
   } else {
+    const url = URL.createObjectURL(pdfBlob);
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
