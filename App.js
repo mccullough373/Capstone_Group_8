@@ -204,6 +204,14 @@ function validatePatientForm() {
 // Show a captured frame in the camera area with the X button and result badge
 function showCapturedFrame(frameData) {
   const container = document.getElementById("webcam-container");
+  const camWrapper = container.closest(".cam-wrapper");
+
+  // Rescue flipBtn from inside the canvas wrapper before clearing container
+  const flipBtn = document.getElementById("FlipCamBtn");
+  if (flipBtn.parentElement !== camWrapper) camWrapper.appendChild(flipBtn);
+  flipBtn.dataset.prevDisplay = flipBtn.style.display;
+  flipBtn.style.display = "none";
+
   container.innerHTML = "";
 
   // Wrap img + X button together so the X is always anchored to the image corner
@@ -256,8 +264,10 @@ function restoreLiveFeed() {
   const camWrapper = container.closest(".cam-wrapper");
   if (xScanBtn.parentElement !== camWrapper) camWrapper.appendChild(xScanBtn);
   container.innerHTML = "";
-  if (webcam?.canvas) container.appendChild(webcam.canvas);
   xScanBtn.style.display = "none";
+  const flipBtn = document.getElementById("FlipCamBtn");
+  flipBtn.style.display = flipBtn.dataset.prevDisplay || "none";
+  if (webcam?.canvas) wrapCanvasWithFlipBtn();
   document.getElementById("scan-result-badge").style.display = "none";
   document.getElementById("lighting-container").style.display = "";
   takePhotoBtn.textContent = "Scan";

@@ -38,15 +38,13 @@ async function init() {
       await startWebcam();
       window.requestAnimationFrame(loop);
 
-      // Add webcam canvas to DOM
-      document.getElementById("webcam-container").appendChild(webcam.canvas);
-
       const flipBtn = document.getElementById("FlipCamBtn");
       if (flipBtn) {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoInputs = devices.filter((d) => d.kind === "videoinput");
         flipBtn.style.display = videoInputs.length > 1 ? "inline-block" : "none";
       }
+      wrapCanvasWithFlipBtn();
     }
   } catch (error) {
     console.error("Initialization error:", error);
@@ -93,6 +91,10 @@ async function startWebcam() {
     webcam._videoEl.srcObject?.getTracks().forEach((t) => t.stop());
     webcam._videoEl.remove();
   }
+  // Rescue FlipCamBtn from inside the canvas wrapper before clearing
+  const flipBtn = document.getElementById("FlipCamBtn");
+  const camWrapper = container.closest(".cam-wrapper");
+  if (flipBtn && flipBtn.parentElement !== camWrapper) camWrapper.appendChild(flipBtn);
   container.innerHTML = "";
 
   const canvas = document.createElement("canvas");
@@ -120,6 +122,18 @@ async function flipCamera() {
     currentFacingMode = previousMode;
     await startWebcam();
   }
+  wrapCanvasWithFlipBtn();
+}
+
+function wrapCanvasWithFlipBtn() {
+  const container = document.getElementById("webcam-container");
+  const flipBtn = document.getElementById("FlipCamBtn");
+  if (!webcam?.canvas) return;
+  const canvasWrapper = document.createElement("div");
+  canvasWrapper.style.cssText = "position: relative; display: inline-block; max-width: 600px; width: 100%;";
+  canvasWrapper.appendChild(webcam.canvas);
+  if (flipBtn && flipBtn.style.display !== "none") canvasWrapper.appendChild(flipBtn);
+  container.appendChild(canvasWrapper);
 }
 
 document.addEventListener("DOMContentLoaded", () => {
