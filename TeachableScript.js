@@ -4,7 +4,7 @@ const CONFIG = { MODEL_URL: "./ModelFiles/" };
 
 // ========== State ==========
 
-let model, webcam, labelContainer, maxPredictions;
+let model, webcam;
 let lastLightingCheck = 0;
 let useUploadedImage = false;
 let uploadedImageElement = null;
@@ -19,7 +19,6 @@ async function init() {
       CONFIG.MODEL_URL + "model.json",
       CONFIG.MODEL_URL + "metadata.json"
     );
-    maxPredictions = model.getTotalClasses();
     isRunning = true;
 
     if (window.uploadedImageData) {
@@ -33,7 +32,6 @@ async function init() {
       });
 
       document.getElementById("webcam-container").appendChild(uploadedImageElement);
-      labelContainer = document.getElementById("label-container");
       await predict();
     } else {
       useUploadedImage = false;
@@ -42,7 +40,6 @@ async function init() {
 
       // Add webcam canvas to DOM
       document.getElementById("webcam-container").appendChild(webcam.canvas);
-      labelContainer = document.getElementById("label-container");
 
       const flipBtn = document.getElementById("FlipCamBtn");
       if (flipBtn) {
@@ -178,31 +175,16 @@ async function predict() {
     return;
   }
 
-  let pgPrediction = null;
-  for (let i = 0; i < maxPredictions; i++) {
-    if (prediction[i].className.toLowerCase().includes("pg")) {
-      pgPrediction = prediction[i];
-      checkLighting();
-      break;
-    }
-  }
-
-  labelContainer.innerHTML = "";
+  const pgPrediction = prediction.find((p) => p.className.toLowerCase().includes("pg")) ?? null;
 
   if (pgPrediction) {
     const prob = pgPrediction.probability * 100;
-    const resultDiv = document.createElement("div");
-    resultDiv.innerHTML = `PG Detected: ${prob.toFixed(1)}%`;
-
-    if (prob >= 70) {
-      resultDiv.style.background = "rgba(34, 197, 94, 0.9)";
-    } else if (prob >= 40) {
-      resultDiv.style.background = "rgba(234, 179, 8, 0.9)";
-    } else {
-      resultDiv.style.background = "rgba(239, 68, 68, 0.9)";
-    }
-
-    labelContainer.appendChild(resultDiv);
+    const bg = prob >= 70 ? "rgba(34, 197, 94, 0.9)"
+              : prob >= 40 ? "rgba(234, 179, 8, 0.9)"
+              : "rgba(239, 68, 68, 0.9)";
+    window.lastPGResult = { text: `PG Detected: ${prob.toFixed(1)}%`, bg };
+  } else {
+    window.lastPGResult = null;
   }
 }
 
@@ -217,7 +199,6 @@ function checkLighting() {
   // Standard luminance formula averaged across all pixels
   let total = 0;
   for (let i = 0; i < data.length; i += 4) {
-    // Standard luminance formula
     total += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
   }
   const brightness = total / (data.length / 4);
@@ -225,26 +206,17 @@ function checkLighting() {
   const lightingDiv = document.getElementById("lighting-container");
   if (!lightingDiv) return;
 
-  let label, bg;
+  let label, cls;
   if (brightness >= 80 && brightness <= 200) {
     label = "Lighting: Good";
-    bg = "rgba(34, 197, 94, 0.9)";
+    cls = "lighting-good";
   } else if (brightness < 80) {
     label = "Lighting: Too Dark";
-    bg = "rgba(239, 68, 68, 0.9)";
+    cls = "lighting-dark";
   } else {
     label = "Lighting: Too Bright";
-    bg = "rgba(234, 179, 8, 0.9)";
+    cls = "lighting-bright";
   }
 
-  lightingDiv.innerHTML = `<div style="
-    background: ${bg};
-    padding: 12px 24px;
-    border-radius: 12px;
-    color: white;
-    font-weight: bold;
-    width: fit-content;
-    margin: 0 auto;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.7);
-  ">${label}</div>`;
+  lightingDiv.innerHTML = `<div class="lighting-badge ${cls}">${label}</div>`;
 }

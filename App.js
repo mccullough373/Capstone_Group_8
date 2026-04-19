@@ -2,9 +2,9 @@
 
 const StartCamBtn = document.getElementById("StartCamBtn");
 const PDFbtn = document.getElementById("PDFbtn");
-const backBtn = document.getElementById("back-btn");
 const patientFormContainer = document.getElementById("patient-form-container");
 const takePhotoBtn = document.getElementById("TakePhotoBtn");
+const xScanBtn = document.getElementById("XScanBtn");
 const viewRecordsBtn = document.getElementById("view-records-btn");
 const recordsModal = document.getElementById("records-model");
 const closeModal = document.querySelector(".close");
@@ -108,7 +108,7 @@ async function promptForPassword() {
 
 setupEncryptionBtn.addEventListener("click", async () => {
   const password = masterPasswordInput.value;
-  const confirm = confirmPasswordInput.value;
+  const confirmPassword = confirmPasswordInput.value;
 
   const passwordErrors = [];
   if (!password || password.length < 8) passwordErrors.push("at least 8 characters");
@@ -123,7 +123,7 @@ setupEncryptionBtn.addEventListener("click", async () => {
     return;
   }
 
-  if (password !== confirm) {
+  if (password !== confirmPassword) {
     encryptionError.textContent = "Passwords do not match";
     encryptionError.style.display = "block";
     return;
@@ -199,6 +199,69 @@ function validatePatientForm() {
   return true;
 }
 
+// ========== Scan Helpers ==========
+
+// Show a captured frame in the camera area with the X button and result badge
+function showCapturedFrame(frameData) {
+  const container = document.getElementById("webcam-container");
+  container.innerHTML = "";
+  const img = document.createElement("img");
+  img.src = frameData;
+  container.appendChild(img);
+
+  xScanBtn.style.display = "block";
+  document.getElementById("lighting-container").style.display = "none";
+  PDFbtn.style.display = "block";
+
+  const badge = document.getElementById("scan-result-badge");
+  if (window.lastPGResult) {
+    badge.textContent = window.lastPGResult.text;
+    badge.style.background = window.lastPGResult.bg;
+    badge.style.display = "block";
+  } else {
+    badge.style.display = "none";
+  }
+}
+
+// Save the currently displayed scan to results (implicit "keep")
+function savePendingScan() {
+  if (!window.scannedFrameData) return;
+  scanResults.push({
+    frameData: window.scannedFrameData,
+    confidenceText: getConfidenceText(),
+    timestamp: new Date().toLocaleString(),
+  });
+  window.scanResults = scanResults;
+  window.scannedFrameData = null;
+  updateScanCounter();
+  PDFbtn.style.display = "block";
+}
+
+function updateScanCounter() {
+  const n = scanResults.length;
+  scanCounter.textContent = `${n} previous scan${n === 1 ? "" : "s"}`;
+  scanCounter.style.display = "block";
+}
+
+// Restore the live camera feed (used by both X and "Scan Again")
+function restoreLiveFeed() {
+  const container = document.getElementById("webcam-container");
+  container.innerHTML = "";
+  if (webcam?.canvas) container.appendChild(webcam.canvas);
+  xScanBtn.style.display = "none";
+  document.getElementById("scan-result-badge").style.display = "none";
+  document.getElementById("lighting-container").style.display = "";
+  takePhotoBtn.textContent = "Scan";
+}
+
+// ========== X Scan Button (discard) ==========
+
+xScanBtn.addEventListener("click", () => {
+  window.scannedFrameData = null;
+  window.lastPGResult = null;
+  restoreLiveFeed();
+});
+
 // ========== Camera ==========
 
 StartCamBtn.addEventListener("click", async () => {
@@ -239,12 +302,16 @@ StartCamBtn.addEventListener("click", async () => {
         timestamp: new Date().toLocaleString(),
       });
       window.scanResults = scanResults;
-      const n = scanResults.length;
-      scanCounter.textContent = `${n} scan${n === 1 ? "" : "s"} saved`;
-      scanCounter.style.display = "block";
+      updateScanCounter();
       document.getElementById("AddImageBtn").style.display = "inline-block";
       PDFbtn.style.display = "block";
-      backBtn.style.display = "block";
+
+      const badge = document.getElementById("scan-result-badge");
+      if (window.lastPGResult) {
+        badge.textContent = window.lastPGResult.text;
+        badge.style.background = window.lastPGResult.bg;
+        badge.style.display = "block";
+      }
     }
   } catch (error) {
     console.error("Failed to start camera:", error);
@@ -255,74 +322,38 @@ StartCamBtn.addEventListener("click", async () => {
 });
 
 takePhotoBtn.addEventListener("click", async () => {
+  // "Scan Again" — save the current frozen scan and return to live feed
+  if (window.scannedFrameData) {
+    savePendingScan();
+    restoreLiveFeed();
+    return;
+  }
+
+  // "Scan" — capture a new frame from the live feed
   if (webcam?.canvas) {
     window.scannedFrameData = webcam.canvas.toDataURL("image/jpeg", 0.92);
   }
-
   await captureAndPredict();
-
-  // Show preview so user can approve or retake before saving
-  const previewModal = document.getElementById("scan-preview-modal");
-  const previewImg = document.getElementById("scan-preview-img");
-
-  previewImg.src = window.scannedFrameData || "";
-  previewModal.style.display = "block";
-});
-
-document.getElementById("keep-scan-btn").addEventListener("click", () => {
-  document.getElementById("scan-preview-modal").style.display = "none";
-
-  scanResults.push({
-    frameData: window.scannedFrameData,
-    confidenceText: getConfidenceText(),
-    timestamp: new Date().toLocaleString(),
-  });
-  window.scanResults = scanResults;
-
-  // If in uploaded-image mode, update the preview to show the most recent image
-  const webcamContainer = document.getElementById("webcam-container");
-  if (webcamContainer.querySelector("img") && window.scannedFrameData) {
-    webcamContainer.innerHTML = "";
-    const updatedImg = document.createElement("img");
-    updatedImg.src = window.scannedFrameData;
-    webcamContainer.appendChild(updatedImg);
-  }
-
+  showCapturedFrame(window.scannedFrameData);
   takePhotoBtn.textContent = "Scan Again";
-  const n = scanResults.length;
-  scanCounter.textContent = `${n} scan${n === 1 ? "" : "s"} saved`;
-  scanCounter.style.display = "block";
-  PDFbtn.style.display = "block";
-  backBtn.style.display = "block";
 });
 
-document.getElementById("retake-scan-btn").addEventListener("click", () => {
-  document.getElementById("scan-preview-modal").style.display = "none";
-  window.scannedFrameData = null;
-  // Camera keeps running — user repositions and scans again
-});
+// ========== Reset Helpers ==========
 
-backBtn.addEventListener("click", () => {
+function resetState() {
   isRunning = false;
-
-  if (webcam?._videoEl?.srcObject) {
-    webcam._videoEl.srcObject.getTracks().forEach((t) => t.stop());
-  }
-
-  // Brief delay lets any in-flight predict() call finish before clearing the UI
-  setTimeout(() => {
-    document.getElementById("label-container").innerHTML = "";
-    document.getElementById("lighting-container").innerHTML = "";
-  }, 100);
-
-  document.getElementById("webcam-container").innerHTML = "";
-
   currentPatientData = null;
   uploadedImageData = null;
   scanResults = [];
   window.uploadedImageData = null;
   window.scannedFrameData = null;
   window.scanResults = null;
+  window.lastPGResult = null;
+}
+
+function resetUI() {
+  document.getElementById("lighting-container").innerHTML = "";
+  document.getElementById("webcam-container").innerHTML = "";
 
   document.getElementById("patient-name").value = "";
   document.getElementById("patient-age").value = "";
@@ -339,13 +370,13 @@ backBtn.addEventListener("click", () => {
   viewRecordsBtn.style.display = "block";
   takePhotoBtn.style.display = "none";
   takePhotoBtn.textContent = "Scan";
+  xScanBtn.style.display = "none";
+  document.getElementById("scan-result-badge").style.display = "none";
   scanCounter.style.display = "none";
   document.getElementById("FlipCamBtn").style.display = "none";
-  document.getElementById("scan-preview-modal").style.display = "none";
   document.getElementById("AddImageBtn").style.display = "none";
   PDFbtn.style.display = "none";
-  backBtn.style.display = "none";
-});
+}
 
 // ========== Image Helpers ==========
 
@@ -385,11 +416,9 @@ document.getElementById("extra-image-input").addEventListener("change", async (e
     await new Promise((r) => (img.onload = r));
 
     await predictOnImageElement(img);
-
     window.scannedFrameData = normalizedURL;
-    const previewImg = document.getElementById("scan-preview-img");
-    previewImg.src = normalizedURL;
-    document.getElementById("scan-preview-modal").style.display = "block";
+    showCapturedFrame(normalizedURL);
+    takePhotoBtn.textContent = "Scan Again";
   };
   reader.readAsDataURL(file);
 });
@@ -397,6 +426,9 @@ document.getElementById("extra-image-input").addEventListener("change", async (e
 // ========== PDF Export ==========
 
 async function exportToPDFWithPatient() {
+  // Auto-save any pending scan before exporting
+  savePendingScan();
+
   if (!currentPatientData) {
     alert("Patient data not found. Please restart the application.");
     return;
@@ -415,6 +447,13 @@ async function exportToPDFWithPatient() {
 
     const patientId = await patientDB.addPatient(currentPatientData);
     alert(`Patient record saved successfully!\n\nRecord ID: ${patientId}\nData encrypted and stored securely.`);
+
+    // Reset for the next patient
+    if (webcam?._videoEl?.srcObject) {
+      webcam._videoEl.srcObject.getTracks().forEach((t) => t.stop());
+    }
+    resetState();
+    setTimeout(resetUI, 100);
   } catch (error) {
     console.error("Error saving patient record:", error);
     alert("PDF exported but failed to save patient record.\n\nError: " + error.message);

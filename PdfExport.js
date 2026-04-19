@@ -136,14 +136,5 @@ function getSnapshotDataURL() {
 }
 
 function getConfidenceText() {
-  const c = document.getElementById("label-container");
-  if (!c) return "No confidence values available.";
-
-  const lines = Array.from(c.children)
-    .map((el) => (el.innerText ?? el.textContent ?? "").trim())
-    .filter(Boolean);
-  if (lines.length) return lines.join("\n");
-
-  const t = (c.innerText ?? c.textContent ?? "").trim();
-  return t || "No confidence values available.";
+  return window.lastPGResult?.text ?? "No confidence values available.";
 }
