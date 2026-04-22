@@ -118,8 +118,8 @@ Click **View Records** to open the patient records viewer. From here you can:
 
 ## Features
 
-### Live Webcam Inference
-The app runs the ML model in real time against the webcam feed, continuously updating the PG confidence score. Observe how the score changes as you adjust camera angle or distance before capturing.
+### Live Webcam Feed
+The app streams a live webcam feed so you can frame the wound site before capturing. The ML model runs at the moment you click **Scan**, producing a PG confidence score for that captured frame. Use the live feed to adjust your angle, distance, and lighting before committing to a scan.
 
 ### Lighting Quality Indicator
 A luminance check runs every 500 ms on the live frame and reports whether current lighting is *Good*, *Too Dark*, or *Too Bright*. Good lighting conditions significantly improve model accuracy. Adjust ambient light or move closer to a light source until the indicator reads *Good*.
@@ -245,7 +245,7 @@ const CONFIG = { MODEL_URL: "./ModelFiles/" };
 **Causes:**
 - Camera permission denied at the OS level
 - Another application holds an exclusive lock on the camera (e.g., video conferencing software)
-- Browser does not have camera permission for `localhost`
+- Browser does not have camera permission for the GitHub Pages site
 - On mobile, the browser tab was backgrounded during initialization
 
 **Solutions:**
