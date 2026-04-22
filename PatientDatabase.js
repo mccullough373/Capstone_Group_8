@@ -7,7 +7,14 @@ class PatientDatabase {
     this.db = null;
   }
 
-  // Initialize the database
+  // Wraps an IDB request in a Promise — avoids new Promise(async ...) anti-pattern
+  _idbRequest(request) {
+    return new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
   async init() {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(this.dbName, this.version);
@@ -19,7 +26,6 @@ class PatientDatabase {
 
       request.onsuccess = () => {
         this.db = request.result;
-        console.log("Database opened successfully");
         resolve(this.db);
       };
 
@@ -35,212 +41,78 @@ class PatientDatabase {
           objectStore.createIndex("name", "name", { unique: false });
           objectStore.createIndex("createdAt", "createdAt", { unique: false });
 
-          console.log("Object store created");
         }
       };
     });
   }
 
-  // Add a new patient record (with encryption)
   async addPatient(patientData) {
-    // Check if encryption is initialized
     if (!encryption.isInitialized()) {
-      throw new Error(
-        "Encryption not initialized. Please set up encryption first."
-      );
+      throw new Error("Encryption not initialized. Please set up encryption first.");
     }
 
-    try {
-      // IMPORTANT: Encrypt BEFORE creating transaction to prevent timeout
-      const encryptedData = await encryption.encrypt({
-        ...patientData,
-        createdAt: new Date().toISOString(),
-      });
+    // Encrypt BEFORE creating transaction to prevent timeout
+    const encryptedData = await encryption.encrypt({
+      ...patientData,
+      createdAt: new Date().toISOString(),
+    });
 
-      // Now create transaction with pre-encrypted data
-      return new Promise((resolve, reject) => {
-        const transaction = this.db.transaction(["patients"], "readwrite");
-        const objectStore = transaction.objectStore("patients");
+    const transaction = this.db.transaction(["patients"], "readwrite");
+    const request = transaction.objectStore("patients").add({
+      encrypted: true,
+      data: encryptedData,
+      createdAt: new Date().toISOString(), // Keep unencrypted for sorting
+    });
 
-        // Store encrypted data
-        const patient = {
-          encrypted: true,
-          data: encryptedData,
-          createdAt: new Date().toISOString(), // Keep timestamp unencrypted for sorting
-        };
-
-        const request = objectStore.add(patient);
-
-        request.onsuccess = () => {
-          console.log("Patient added with ID:", request.result);
-          resolve(request.result);
-        };
-
-        request.onerror = () => {
-          console.error("Error adding patient:", request.error);
-          reject(request.error);
-        };
-      });
-    } catch (error) {
-      console.error("Encryption error:", error);
-      throw error;
-    }
+    return this._idbRequest(request);
   }
 
-  // Get all patients (with decryption)
   async getAllPatients() {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const transaction = this.db.transaction(["patients"], "readonly");
-        const objectStore = transaction.objectStore("patients");
-        const request = objectStore.getAll();
+    const transaction = this.db.transaction(["patients"], "readonly");
+    const request = transaction.objectStore("patients").getAll();
+    const encryptedPatients = await this._idbRequest(request);
 
-        request.onsuccess = async () => {
-          const encryptedPatients = request.result;
-
-          // Decrypt all patients
-          const decryptedPatients = await Promise.all(
-            encryptedPatients.map(async (patient) => {
-              if (patient.encrypted) {
-                try {
-                  const decryptedData = await encryption.decrypt(patient.data);
-                  return {
-                    id: patient.id,
-                    ...decryptedData,
-                  };
-                } catch (error) {
-                  console.error(
-                    "Failed to decrypt patient:",
-                    patient.id,
-                    error
-                  );
-                  return null;
-                }
-              } else {
-                // Legacy unencrypted data
-                return patient;
-              }
-            })
-          );
-
-          // Filter out failed decryptions
-          resolve(decryptedPatients.filter((p) => p !== null));
-        };
-
-        request.onerror = () => {
-          reject(request.error);
-        };
-      } catch (error) {
-        reject(error);
-      }
-    });
-  }
-
-  // Get patient by ID (with decryption)
-  async getPatientById(id) {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const transaction = this.db.transaction(["patients"], "readonly");
-        const objectStore = transaction.objectStore("patients");
-        const request = objectStore.get(id);
-
-        request.onsuccess = async () => {
-          const patient = request.result;
-
-          if (patient && patient.encrypted) {
-            try {
-              const decryptedData = await encryption.decrypt(patient.data);
-              resolve({
-                id: patient.id,
-                ...decryptedData,
-              });
-            } catch (error) {
-              console.error("Failed to decrypt patient:", error);
-              reject(error);
-            }
-          } else {
-            resolve(patient);
+    const decryptedPatients = await Promise.all(
+      encryptedPatients.map(async (patient) => {
+        if (patient.encrypted) {
+          try {
+            const decryptedData = await encryption.decrypt(patient.data);
+            return { id: patient.id, ...decryptedData };
+          } catch (error) {
+            console.error("Failed to decrypt patient:", patient.id, error);
+            return null;
           }
-        };
+        }
+        return patient; // legacy unencrypted
+      })
+    );
 
-        request.onerror = () => {
-          reject(request.error);
-        };
-      } catch (error) {
-        reject(error);
-      }
-    });
+    return decryptedPatients.filter(Boolean);
   }
 
-  // Search patients by name (with decryption)
+  async getPatientById(id) {
+    const transaction = this.db.transaction(["patients"], "readonly");
+    const request = transaction.objectStore("patients").get(id);
+    const patient = await this._idbRequest(request);
+
+    if (patient?.encrypted) {
+      const decryptedData = await encryption.decrypt(patient.data);
+      return { id: patient.id, ...decryptedData };
+    }
+    return patient;
+  }
+
   async searchPatientsByName(searchTerm) {
-    // Get all patients and decrypt, then filter
     const allPatients = await this.getAllPatients();
     return allPatients.filter((p) =>
       p.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }
 
-  // Update patient record (with encryption)
-  async updatePatient(id, updates) {
-    try {
-      // First get the existing record
-      const patient = await this.getPatientById(id);
-
-      if (!patient) {
-        throw new Error("Patient not found");
-      }
-
-      // Merge updates
-      const updatedData = { ...patient, ...updates };
-      delete updatedData.id; // Remove id from data before encryption
-
-      // IMPORTANT: Encrypt BEFORE creating transaction to prevent timeout
-      const encryptedData = await encryption.encrypt(updatedData);
-
-      // Now create transaction with pre-encrypted data
-      return new Promise((resolve, reject) => {
-        const transaction = this.db.transaction(["patients"], "readwrite");
-        const objectStore = transaction.objectStore("patients");
-
-        const updatedPatient = {
-          id: id,
-          encrypted: true,
-          data: encryptedData,
-          createdAt: patient.createdAt,
-        };
-
-        const request = objectStore.put(updatedPatient);
-
-        request.onsuccess = () => {
-          resolve(updatedData);
-        };
-
-        request.onerror = () => {
-          reject(request.error);
-        };
-      });
-    } catch (error) {
-      console.error("Update patient error:", error);
-      throw error;
-    }
-  }
-
-  // Delete patient record
   async deletePatient(id) {
-    return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction(["patients"], "readwrite");
-      const objectStore = transaction.objectStore("patients");
-      const request = objectStore.delete(id);
-
-      request.onsuccess = () => {
-        resolve();
-      };
-
-      request.onerror = () => {
-        reject(request.error);
-      };
-    });
+    const transaction = this.db.transaction(["patients"], "readwrite");
+    const request = transaction.objectStore("patients").delete(id);
+    return this._idbRequest(request);
   }
 }
 

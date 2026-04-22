@@ -4,7 +4,7 @@ const CONFIG = { MODEL_URL: "./ModelFiles/" };
 
 // ========== State ==========
 
-let model, webcam, labelContainer, maxPredictions;
+let model, webcam;
 let lastLightingCheck = 0;
 let useUploadedImage = false;
 let uploadedImageElement = null;
@@ -19,7 +19,6 @@ async function init() {
       CONFIG.MODEL_URL + "model.json",
       CONFIG.MODEL_URL + "metadata.json"
     );
-    maxPredictions = model.getTotalClasses();
     isRunning = true;
 
     if (window.uploadedImageData) {
@@ -33,19 +32,19 @@ async function init() {
       });
 
       document.getElementById("webcam-container").appendChild(uploadedImageElement);
-      labelContainer = document.getElementById("label-container");
       await predict();
     } else {
       useUploadedImage = false;
       await startWebcam();
       window.requestAnimationFrame(loop);
 
-      // Add webcam canvas to DOM
-      document.getElementById("webcam-container").appendChild(webcam.canvas);
-      labelContainer = document.getElementById("label-container");
-
       const flipBtn = document.getElementById("FlipCamBtn");
-      if (flipBtn) flipBtn.style.display = "inline-block";
+      if (flipBtn) {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoInputs = devices.filter((d) => d.kind === "videoinput");
+        flipBtn.style.display = videoInputs.length > 1 ? "inline-block" : "none";
+      }
+      wrapCanvasWithFlipBtn();
     }
   } catch (error) {
     console.error("Initialization error:", error);
@@ -67,15 +66,10 @@ async function init() {
 async function startWebcam() {
   const container = document.getElementById("webcam-container");
 
-  if (webcam?._videoEl) {
-    webcam._videoEl.srcObject?.getTracks().forEach((t) => t.stop());
-    webcam._videoEl.remove();
-  }
-  container.innerHTML = "";
-
   // iOS Safari requires { exact: "environment" } to reliably switch to the back camera
   const facingConstraint = currentFacingMode === "environment" ? { exact: "environment" } : "user";
 
+  // Get the new stream before touching the existing preview so there's no blank flash
   const stream = await navigator.mediaDevices.getUserMedia({
     video: { facingMode: facingConstraint },
     audio: false,
@@ -91,6 +85,17 @@ async function startWebcam() {
     if (video.readyState >= 1) resolve();
     else video.addEventListener("loadedmetadata", resolve, { once: true });
   });
+
+  // New stream is ready — now tear down the old one and swap in the new canvas
+  if (webcam?._videoEl) {
+    webcam._videoEl.srcObject?.getTracks().forEach((t) => t.stop());
+    webcam._videoEl.remove();
+  }
+  // Rescue FlipCamBtn from inside the canvas wrapper before clearing
+  const flipBtn = document.getElementById("FlipCamBtn");
+  const camWrapper = container.closest(".cam-wrapper");
+  if (flipBtn && flipBtn.parentElement !== camWrapper) camWrapper.appendChild(flipBtn);
+  container.innerHTML = "";
 
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth || 640;
@@ -108,8 +113,27 @@ async function startWebcam() {
 }
 
 async function flipCamera() {
+  const previousMode = currentFacingMode;
   currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
-  await startWebcam();
+  try {
+    await startWebcam();
+  } catch (error) {
+    console.warn("Camera flip failed, reverting:", error);
+    currentFacingMode = previousMode;
+    await startWebcam();
+  }
+  wrapCanvasWithFlipBtn();
+}
+
+function wrapCanvasWithFlipBtn() {
+  const container = document.getElementById("webcam-container");
+  const flipBtn = document.getElementById("FlipCamBtn");
+  if (!webcam?.canvas) return;
+  const canvasWrapper = document.createElement("div");
+  canvasWrapper.style.cssText = "position: relative; display: inline-block; max-width: 600px; width: 100%;";
+  canvasWrapper.appendChild(webcam.canvas);
+  if (flipBtn && flipBtn.style.display !== "none") canvasWrapper.appendChild(flipBtn);
+  container.appendChild(canvasWrapper);
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -138,6 +162,16 @@ function loop() {
 
 // ========== Prediction ==========
 
+async function predictOnImageElement(imgEl) {
+  const prevEl = uploadedImageElement;
+  const prevUseUploaded = useUploadedImage;
+  uploadedImageElement = imgEl;
+  useUploadedImage = true;
+  await predict();
+  uploadedImageElement = prevEl;
+  useUploadedImage = prevUseUploaded;
+}
+
 async function captureAndPredict() {
   const btn = document.getElementById("TakePhotoBtn");
   if (btn) { btn.disabled = true; btn.textContent = "Scanning..."; }
@@ -157,31 +191,16 @@ async function predict() {
     return;
   }
 
-  let pgPrediction = null;
-  for (let i = 0; i < maxPredictions; i++) {
-    if (prediction[i].className.toLowerCase().includes("pg")) {
-      pgPrediction = prediction[i];
-      checkLighting();
-      break;
-    }
-  }
-
-  labelContainer.innerHTML = "";
+  const pgPrediction = prediction.find((p) => p.className.trim().toLowerCase() === "pg") ?? null;
 
   if (pgPrediction) {
     const prob = pgPrediction.probability * 100;
-    const resultDiv = document.createElement("div");
-    resultDiv.innerHTML = `PG Detected: ${prob.toFixed(1)}%`;
-
-    if (prob >= 70) {
-      resultDiv.style.background = "rgba(34, 197, 94, 0.9)";
-    } else if (prob >= 40) {
-      resultDiv.style.background = "rgba(234, 179, 8, 0.9)";
-    } else {
-      resultDiv.style.background = "rgba(239, 68, 68, 0.9)";
-    }
-
-    labelContainer.appendChild(resultDiv);
+    const bg = prob >= 70 ? "rgba(34, 197, 94, 0.9)"
+              : prob >= 40 ? "rgba(234, 179, 8, 0.9)"
+              : "rgba(239, 68, 68, 0.9)";
+    window.lastPGResult = { text: `PG Detected: ${prob.toFixed(1)}%`, bg };
+  } else {
+    window.lastPGResult = null;
   }
 }
 
@@ -196,7 +215,6 @@ function checkLighting() {
   // Standard luminance formula averaged across all pixels
   let total = 0;
   for (let i = 0; i < data.length; i += 4) {
-    // Standard luminance formula
     total += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
   }
   const brightness = total / (data.length / 4);
@@ -204,26 +222,17 @@ function checkLighting() {
   const lightingDiv = document.getElementById("lighting-container");
   if (!lightingDiv) return;
 
-  let label, bg;
+  let label, cls;
   if (brightness >= 80 && brightness <= 200) {
     label = "Lighting: Good";
-    bg = "rgba(34, 197, 94, 0.9)";
+    cls = "lighting-good";
   } else if (brightness < 80) {
     label = "Lighting: Too Dark";
-    bg = "rgba(239, 68, 68, 0.9)";
+    cls = "lighting-dark";
   } else {
     label = "Lighting: Too Bright";
-    bg = "rgba(234, 179, 8, 0.9)";
+    cls = "lighting-bright";
   }
 
-  lightingDiv.innerHTML = `<div style="
-    background: ${bg};
-    padding: 12px 24px;
-    border-radius: 12px;
-    color: white;
-    font-weight: bold;
-    width: fit-content;
-    margin: 0 auto;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.7);
-  ">${label}</div>`;
+  lightingDiv.innerHTML = `<div class="lighting-badge ${cls}">${label}</div>`;
 }

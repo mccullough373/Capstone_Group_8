@@ -2,10 +2,9 @@
 
 const StartCamBtn = document.getElementById("StartCamBtn");
 const PDFbtn = document.getElementById("PDFbtn");
-const backBtn = document.getElementById("back-btn");
-const textElement = document.getElementById("text");
 const patientFormContainer = document.getElementById("patient-form-container");
 const takePhotoBtn = document.getElementById("TakePhotoBtn");
+const xScanBtn = document.getElementById("XScanBtn");
 const viewRecordsBtn = document.getElementById("view-records-btn");
 const recordsModal = document.getElementById("records-model");
 const closeModal = document.querySelector(".close");
@@ -27,11 +26,13 @@ const patientImageInput = document.getElementById("patient-image");
 const imagePreviewContainer = document.getElementById("image-preview-container");
 const imagePreview = document.getElementById("image-preview");
 const removeImageBtn = document.getElementById("remove-image-btn");
+const scanCounter = document.getElementById("scan-counter");
 
 // ========== State ==========
 
 let currentPatientData = null;
 let uploadedImageData = null;
+let scanResults = [];
 
 // ========== Encryption & Initialization ==========
 
@@ -107,7 +108,7 @@ async function promptForPassword() {
 
 setupEncryptionBtn.addEventListener("click", async () => {
   const password = masterPasswordInput.value;
-  const confirm = confirmPasswordInput.value;
+  const confirmPassword = confirmPasswordInput.value;
 
   const passwordErrors = [];
   if (!password || password.length < 8) passwordErrors.push("at least 8 characters");
@@ -122,7 +123,7 @@ setupEncryptionBtn.addEventListener("click", async () => {
     return;
   }
 
-  if (password !== confirm) {
+  if (password !== confirmPassword) {
     encryptionError.textContent = "Passwords do not match";
     encryptionError.style.display = "block";
     return;
@@ -198,6 +199,88 @@ function validatePatientForm() {
   return true;
 }
 
+// ========== Scan Helpers ==========
+
+// Show a captured frame in the camera area with the X button and result badge
+function showCapturedFrame(frameData) {
+  const container = document.getElementById("webcam-container");
+  const camWrapper = container.closest(".cam-wrapper");
+
+  // Rescue flipBtn from inside the canvas wrapper before clearing container
+  const flipBtn = document.getElementById("FlipCamBtn");
+  if (flipBtn.parentElement !== camWrapper) camWrapper.appendChild(flipBtn);
+  flipBtn.dataset.prevDisplay = flipBtn.style.display;
+  flipBtn.style.display = "none";
+
+  container.innerHTML = "";
+
+  // Wrap img + X button together so the X is always anchored to the image corner
+  const imgWrapper = document.createElement("div");
+  imgWrapper.style.cssText = "position: relative; display: inline-block; max-width: 600px; width: 100%;";
+  const img = document.createElement("img");
+  img.src = frameData;
+  imgWrapper.appendChild(img);
+  imgWrapper.appendChild(xScanBtn);
+  container.appendChild(imgWrapper);
+
+  xScanBtn.style.display = "block";
+  document.getElementById("lighting-container").style.display = "none";
+  PDFbtn.style.display = "block";
+
+  const badge = document.getElementById("scan-result-badge");
+  if (window.lastPGResult) {
+    badge.textContent = window.lastPGResult.text;
+    badge.style.background = window.lastPGResult.bg;
+    badge.style.display = "block";
+  } else {
+    badge.style.display = "none";
+  }
+}
+
+// Save the currently displayed scan to results (implicit "keep")
+function savePendingScan() {
+  if (!window.scannedFrameData) return;
+  scanResults.push({
+    frameData: window.scannedFrameData,
+    confidenceText: getConfidenceText(),
+    timestamp: new Date().toLocaleString(),
+  });
+  window.scanResults = scanResults;
+  window.scannedFrameData = null;
+  updateScanCounter();
+  PDFbtn.style.display = "block";
+}
+
+function updateScanCounter() {
+  const n = scanResults.length;
+  scanCounter.textContent = `${n} previous scan${n === 1 ? "" : "s"}`;
+  scanCounter.style.display = "block";
+}
+
+// Restore the live camera feed (used by both X and "Scan Again")
+function restoreLiveFeed() {
+  const container = document.getElementById("webcam-container");
+  // Rescue xScanBtn from inside the image wrapper before clearing
+  const camWrapper = container.closest(".cam-wrapper");
+  if (xScanBtn.parentElement !== camWrapper) camWrapper.appendChild(xScanBtn);
+  container.innerHTML = "";
+  xScanBtn.style.display = "none";
+  const flipBtn = document.getElementById("FlipCamBtn");
+  flipBtn.style.display = flipBtn.dataset.prevDisplay || "none";
+  if (webcam?.canvas) wrapCanvasWithFlipBtn();
+  document.getElementById("scan-result-badge").style.display = "none";
+  document.getElementById("lighting-container").style.display = "";
+  takePhotoBtn.textContent = "Scan";
+}
+
+// ========== X Scan Button (discard) ==========
+
+xScanBtn.addEventListener("click", () => {
+  window.scannedFrameData = null;
+  window.lastPGResult = null;
+  restoreLiveFeed();
+});
+
 // ========== Camera ==========
 
 StartCamBtn.addEventListener("click", async () => {
@@ -225,14 +308,29 @@ StartCamBtn.addEventListener("click", async () => {
     await init();
 
     StartCamBtn.style.display = "none";
-    textElement.style.display = "block";
+    viewRecordsBtn.style.display = "none";
     patientFormContainer.style.display = "none";
 
     if (!window.uploadedImageData) {
       takePhotoBtn.style.display = "inline-block";
     } else {
+      const normalizedFirst = await normalizeImageOrientation(window.uploadedImageData);
+      scanResults.push({
+        frameData: normalizedFirst,
+        confidenceText: getConfidenceText(),
+        timestamp: new Date().toLocaleString(),
+      });
+      window.scanResults = scanResults;
+      updateScanCounter();
+      document.getElementById("AddImageBtn").style.display = "inline-block";
       PDFbtn.style.display = "block";
-      backBtn.style.display = "block";
+
+      const badge = document.getElementById("scan-result-badge");
+      if (window.lastPGResult) {
+        badge.textContent = window.lastPGResult.text;
+        badge.style.background = window.lastPGResult.bg;
+        badge.style.display = "block";
+      }
     }
   } catch (error) {
     console.error("Failed to start camera:", error);
@@ -243,42 +341,38 @@ StartCamBtn.addEventListener("click", async () => {
 });
 
 takePhotoBtn.addEventListener("click", async () => {
+  // "Scan Again" — save the current frozen scan and return to live feed
+  if (window.scannedFrameData) {
+    savePendingScan();
+    restoreLiveFeed();
+    return;
+  }
+
+  // "Scan" — capture a new frame from the live feed
   if (webcam?.canvas) {
     window.scannedFrameData = webcam.canvas.toDataURL("image/jpeg", 0.92);
   }
-
   await captureAndPredict();
-  await exportToPDFWithPatient();
-
-  isRunning = false;
-  if (webcam?._videoEl?.srcObject) {
-    webcam._videoEl.srcObject.getTracks().forEach((t) => t.stop());
-  }
-
-  takePhotoBtn.style.display = "none";
-  document.getElementById("FlipCamBtn").style.display = "none";
-  backBtn.style.display = "block";
+  showCapturedFrame(window.scannedFrameData);
+  takePhotoBtn.textContent = "Scan Again";
 });
 
-backBtn.addEventListener("click", () => {
+// ========== Reset Helpers ==========
+
+function resetState() {
   isRunning = false;
-
-  if (webcam?._videoEl?.srcObject) {
-    webcam._videoEl.srcObject.getTracks().forEach((t) => t.stop());
-  }
-
-  // Brief delay lets any in-flight predict() call finish before clearing the UI
-  setTimeout(() => {
-    document.getElementById("label-container").innerHTML = "";
-    document.getElementById("lighting-container").innerHTML = "";
-  }, 100);
-
-  document.getElementById("webcam-container").innerHTML = "";
-
   currentPatientData = null;
   uploadedImageData = null;
+  scanResults = [];
   window.uploadedImageData = null;
   window.scannedFrameData = null;
+  window.scanResults = null;
+  window.lastPGResult = null;
+}
+
+function resetUI() {
+  document.getElementById("lighting-container").innerHTML = "";
+  document.getElementById("webcam-container").innerHTML = "";
 
   document.getElementById("patient-name").value = "";
   document.getElementById("patient-age").value = "";
@@ -289,19 +383,71 @@ backBtn.addEventListener("click", () => {
   imagePreviewContainer.style.display = "none";
 
   patientFormContainer.style.display = "block";
-  StartCamBtn.style.display = "block";
   StartCamBtn.disabled = false;
   StartCamBtn.textContent = "Start Scan";
+  StartCamBtn.style.display = "block";
+  viewRecordsBtn.style.display = "block";
   takePhotoBtn.style.display = "none";
+  takePhotoBtn.textContent = "Scan";
+  xScanBtn.style.display = "none";
+  document.getElementById("scan-result-badge").style.display = "none";
+  scanCounter.style.display = "none";
   document.getElementById("FlipCamBtn").style.display = "none";
+  document.getElementById("AddImageBtn").style.display = "none";
   PDFbtn.style.display = "none";
-  backBtn.style.display = "none";
-  textElement.style.display = "none";
+}
+
+// ========== Image Helpers ==========
+
+// Draws the image through a canvas so jsPDF receives orientation-corrected pixel data.
+// Modern browsers apply EXIF rotation when rendering <img> but jsPDF uses the raw bytes.
+function normalizeImageOrientation(dataURL) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      canvas.getContext("2d").drawImage(img, 0, 0);
+      resolve(canvas.toDataURL("image/jpeg", 0.92));
+    };
+    img.src = dataURL;
+  });
+}
+
+// ========== Additional Image Upload ==========
+
+document.getElementById("AddImageBtn").addEventListener("click", () => {
+  document.getElementById("extra-image-input").click();
+});
+
+document.getElementById("extra-image-input").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  e.target.value = "";
+
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    const normalizedURL = await normalizeImageOrientation(ev.target.result);
+
+    const img = new Image();
+    img.src = normalizedURL;
+    await new Promise((r) => (img.onload = r));
+
+    await predictOnImageElement(img);
+    window.scannedFrameData = normalizedURL;
+    showCapturedFrame(normalizedURL);
+    takePhotoBtn.textContent = "Scan Again";
+  };
+  reader.readAsDataURL(file);
 });
 
 // ========== PDF Export ==========
 
 async function exportToPDFWithPatient() {
+  // Auto-save any pending scan before exporting
+  savePendingScan();
+
   if (!currentPatientData) {
     alert("Patient data not found. Please restart the application.");
     return;
@@ -320,6 +466,13 @@ async function exportToPDFWithPatient() {
 
     const patientId = await patientDB.addPatient(currentPatientData);
     alert(`Patient record saved successfully!\n\nRecord ID: ${patientId}\nData encrypted and stored securely.`);
+
+    // Reset for the next patient
+    if (webcam?._videoEl?.srcObject) {
+      webcam._videoEl.srcObject.getTracks().forEach((t) => t.stop());
+    }
+    resetState();
+    setTimeout(resetUI, 100);
   } catch (error) {
     console.error("Error saving patient record:", error);
     alert("PDF exported but failed to save patient record.\n\nError: " + error.message);
@@ -456,27 +609,8 @@ async function downloadPatientPDF(id) {
       : new Blob([patient.pdfBlob], { type: "application/pdf" });
 
     const filename = patient.pdfFilename || `Patient_${patient.id}_${patient.name.replace(/\s+/g, "_")}_Report.pdf`;
-    const pdfFile = new File([blob], filename, { type: "application/pdf" });
 
-    // Use the native share sheet on mobile — iOS Safari ignores <a download> on blob URLs
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-      try {
-        await navigator.share({ files: [pdfFile], title: filename });
-      } catch (e) {
-        if (e.name !== "AbortError") console.warn("Share failed:", e);
-      }
-      return;
-    }
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    await downloadPDF(blob, filename);
   } catch (error) {
     console.error("Error downloading PDF:", error);
     alert(`Failed to download PDF: ${error.message}`);
